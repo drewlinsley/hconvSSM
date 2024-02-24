@@ -1,0 +1,5 @@
+data/
+cudnn*
+*=2.8*
+*.egg*
+__pycache__
