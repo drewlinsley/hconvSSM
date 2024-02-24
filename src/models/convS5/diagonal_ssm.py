@@ -244,8 +244,8 @@ class ConvS5SSM(nn.Module):
             self.A_bar, self.B_bar = discretize_zoh(self.Lambda,
                                                     B_tilde,
                                                     step)
-            self.A_bar = self.A_bar.reshape(-1, 1).repeat(9, -1).reshape(len(self.A_bar), 3, 3)
-            self.A_bar = he_normal()(jax.random.PRNGKey(42), shape=self.A_bar.shape, dtype=self.A_bar.dtype)
+            # self.A_bar = self.A_bar.reshape(-1, 1).repeat(9, -1).reshape(len(self.A_bar), 3, 3)
+            # self.A_bar = he_normal()(jax.random.PRNGKey(42), shape=self.A_bar.shape, dtype=self.A_bar.dtype)
             self.B_bar = self.B_bar.reshape(self.P, self.U, self.k_B, self.k_B).transpose(2, 3, 1, 0)
         else:
             # trick to cache the discretization for step-by-step

@@ -136,8 +136,10 @@ def main():
         
     elif config.model in ["convS5_noVQ", "convLSTM_noVQ"]:
         model_par_eval = model(parallel=True, training=False)
+        # model_par_eval = model(parallel=False, training=False)
         model_seq_eval = model(parallel=False, training=False)
         model = model(parallel=True, training=True)
+        # model = model(parallel=False, training=True)
 
         p_observe = jax.pmap(partial(sample_convSSM_noVQ._observe,
                                      model_par=model_par_eval))
