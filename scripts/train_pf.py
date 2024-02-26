@@ -15,6 +15,7 @@
 # Written by Jimmy Smith
 # ------------------------------------------------------------------------------
 
+
 import os
 import os.path as osp
 import socket
@@ -223,6 +224,7 @@ def train_step(batch, state, rng):
     rngs = {k: r for k, r in zip(config.rng_keys, rngs)}
 
     def loss_fn(params):
+        import pdb;pdb.set_trace()
         variables = {'params': params, **state.model_state}
         out = state.apply_fn(
             variables,

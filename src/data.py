@@ -5,6 +5,7 @@
 # https://github.com/wilson1yan/teco/tree/master
 # ------------------------------------------------------------------------------
 
+import os
 import glob
 import os.path as osp
 import numpy as np
@@ -16,6 +17,7 @@ import tensorflow_datasets as tfds
 import tensorflow_io as tfio
 from tensorflow.python.lib.io import file_io
 import io
+from skimage.io import imread
 
 
 def is_tfds_folder(path):
@@ -89,6 +91,44 @@ def load_mnist_npz(config, split, num_ds_shards, ds_shard_id):
     )
     dataset = dataset.map(
         lambda video: dict(video=video, actions=None),
+        num_parallel_calls=tf.data.experimental.AUTOTUNE
+    )
+
+    return dataset
+
+
+def load_pf(config, split, num_ds_shards, ds_shard_id, T=30, HW=[64, 64, 1]):
+
+    meta = np.load("/media/data_cifs/pathfinder_small/curv_contour_length_14/metadata/combined.npy")
+    root = "/media/data_cifs/pathfinder_small/curv_contour_length_14"
+
+    fns = np.array_split(meta, num_ds_shards)[ds_shard_id].tolist()
+    print("fns shape", len(fns))
+    def read(path):
+        p0 = path[0].decode('UTF-8')
+        p1 = path[1].decode('UTF-8')
+        fl = os.path.join(root, p0, p1)
+        if fl.startswith('gs://'):
+            fl = io.BytesIO(file_io.FileIO(fl, 'rb').read())
+        image = imread(fl).astype(np.float32)[..., None]
+        image = jax.image.resize(image, shape=HW, method="linear")
+        image = 2 * (image / 255.) - 1
+        image = image[None].repeat(T, 0)  # Add timesteps and a channel dim
+        label = int(path[3])
+        video, actions = image, label
+        return video, actions
+
+    dataset = tf.data.Dataset.from_tensor_slices(fns)
+    dataset = dataset.map(
+        lambda item: tf.numpy_function(
+            read,
+            [item],
+            [tf.float32, tf.int64]
+        ),
+        num_parallel_calls=tf.data.experimental.AUTOTUNE
+    )
+    dataset = dataset.map(
+        lambda video, actions: dict(video=video, actions=actions),
         num_parallel_calls=tf.data.experimental.AUTOTUNE
     )
 
@@ -173,13 +213,14 @@ class Data:
 
         batch_size = self.config.batch_size // num_ds_shards
         split_name = 'train' if train else 'test'
-
         if not is_tfds_folder(self.config.data_path):
             if 'dmlab' in self.config.data_path:
                 dataset = load_npz(self.config, split_name, num_ds_shards, ds_shard_id)
             elif 'mnist' in self.config.data_path:
                 print('loading mnist')
                 dataset = load_mnist_npz(self.config, split_name, num_ds_shards, ds_shard_id)
+            elif 'pathfinder' in self.config.data_path:
+                dataset = load_pf(self.config, split_name, num_ds_shards, ds_shard_id)
             else:
                 dataset = load_video(self.config, split_name, num_ds_shards, ds_shard_id)
         else:
