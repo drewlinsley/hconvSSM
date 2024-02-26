@@ -176,7 +176,6 @@ def initialize_B_kernel(key, shape):
 
 
 def init_VinvB(key, shape, Vinv):
-    import pdb;pdb.set_trace()
     B = initialize_B_kernel(key, shape)
     VinvB = Vinv @ B
     VinvB_real = VinvB.real
