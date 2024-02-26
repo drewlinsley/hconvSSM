@@ -12,7 +12,7 @@ from functools import partial
 import jax
 import jax.numpy as np
 from flax import linen as nn
-from jax.nn.initializers import he_normal, normal, uniform
+from jax.nn.initializers import he_normal, normal
 from jax.numpy.linalg import eigh
 from jax.scipy.linalg import block_diag
 
@@ -25,19 +25,6 @@ def make_HiPPO(N):
     A = P[:, np.newaxis] * P[np.newaxis, :]
     A = np.tril(A) - np.diag(np.arange(N))
     return -A
-
-
-def sample_u(H, W, N, key, dtype, c=0.9999, s=0.001):
-    return (c - uniform(s)(key, shape=[H, W, N, N], dtype=dtype)) ** 2
-
-
-def make_LRU(N, H, W, key, dtype=np.float32):
-    A = sample_u(H, W, N, key=key, dtype=dtype)
-    V = -0.5 * np.log(A + A.min())
-    theta = 2 * np.pi * sample_u(H, W, N, key=key, dtype=dtype)
-    C = np.exp(jax.lax.complex(-V, theta))
-    _, V = eigh(C)
-    return C, V
 
 
 def make_Normal_HiPPO(N):
@@ -55,33 +42,27 @@ def make_Normal_HiPPO(N):
     return nhippo, P, B
 
 
-def make_NPLR_init(N, key=None, H=7, W=7, init="LRU"):
+def make_NPLR_HiPPO(N):
     """
     Makes components needed for NPLR representation of HiPPO-LegS
      From https://github.com/srush/annotated-s4/blob/main/s4/s4.py
     Args:
         N (int32): state size
-        init (str): LRU or HiPPO
     Returns:
         N x N HiPPO LegS matrix, low-rank factor P, HiPPO input matrix B
     """
     # Make -HiPPO
-    if init.lower() == "hippo":
-        wi = make_HiPPO(N)
-    elif init.lower() == "lru":
-        wi = make_LRU(N, H, W, key)
-    else:
-        raise NotImplementedError(init)
+    hippo = make_HiPPO(N)
 
     # Add in a rank 1 term. Makes it Normal.
     P = np.sqrt(np.arange(N) + 0.5)
 
     # HiPPO also specifies the B matrix
     B = np.sqrt(2 * np.arange(N) + 1.0)
-    return wi, P, B
+    return hippo, P, B
 
 
-def make_DPLR_init(N, key=None, H=7, W=7, init="LRU"):
+def make_DPLR_HiPPO(N):
     """
     Makes components needed for DPLR representation of HiPPO-LegS
      From https://github.com/srush/annotated-s4/blob/main/s4/s4.py
@@ -92,15 +73,9 @@ def make_DPLR_init(N, key=None, H=7, W=7, init="LRU"):
         eigenvalues Lambda, low-rank term P, conjugated HiPPO input matrix B,
         eigenvectors V, HiPPO B pre-conjugation
     """
-    A, P, B = make_NPLR_init(N, key=key, H=H, W=W, init=init)
+    A, P, B = make_NPLR_HiPPO(N)
 
-    if init.lower() == "hippo":
-        S = A + P[:, np.newaxis] * P[np.newaxis, :]
-    elif init.lower() == "lru":
-        wi = make_LRU(N, H, W, key)
-        raise RuntimeError("Stop this path")
-    else:
-        raise NotImplementedError(init)
+    S = A + P[:, np.newaxis] * P[np.newaxis, :]
 
     S_diag = np.diagonal(S)
     Lambda_real = np.mean(S_diag) * np.ones_like(S_diag)
@@ -176,7 +151,6 @@ def initialize_B_kernel(key, shape):
 
 
 def init_VinvB(key, shape, Vinv):
-    import pdb;pdb.set_trace()
     B = initialize_B_kernel(key, shape)
     VinvB = Vinv @ B
     VinvB_real = VinvB.real
@@ -270,10 +244,6 @@ class ConvS5SSM(nn.Module):
             self.A_bar, self.B_bar = discretize_zoh(self.Lambda,
                                                     B_tilde,
                                                     step)
-            spatial_kernels = True
-            if spatial_kernels:
-                self.A_bar = self.A_bar.reshape(-1, 1).repeat(9, -1).reshape(len(self.A_bar), 3, 3)
-                self.A_bar = he_normal()(jax.random.PRNGKey(42), shape=self.A_bar.shape, dtype=self.A_bar.dtype)
             self.B_bar = self.B_bar.reshape(self.P, self.U, self.k_B, self.k_B).transpose(2, 3, 1, 0)
         else:
             # trick to cache the discretization for step-by-step
@@ -320,32 +290,19 @@ class ConvS5SSM(nn.Module):
         return x_last, ys
 
 
-def hippo_initializer(ssm_size, blocks, H, W, init, key):
+def hippo_initializer(ssm_size, blocks):
     block_size = int(ssm_size/blocks)
-    if init.lower() == "hippo":
-        Lambda, _, _, V, _ = make_DPLR_init(block_size, H=H, W=W, init=init, key=key)
-    elif init.lower() == "lru":
-        Lambda, V = make_LRU(block_size, H=H, W=W, key=key)        
-
+    Lambda, _, _, V, _ = make_DPLR_HiPPO(block_size)
     ssm_size = ssm_size // 2
     block_size = block_size // 2
+    Lambda = Lambda[:block_size]
+    V = V[:, :block_size]
+    Vc = V.conj().T
 
-    if init.lower() == "hippo":
-        Lambda = Lambda[:block_size]
-        V = V[:, :block_size]
-        Vc = V.conj().T
+    Lambda = (Lambda * np.ones((blocks, block_size))).ravel()
+    V = block_diag(*([V] * blocks))
+    Vinv = block_diag(*([Vc] * blocks))
 
-        Lambda = (Lambda * np.ones((blocks, block_size))).ravel()
-        V = block_diag(*([V] * blocks))
-        Vinv = block_diag(*([Vc] * blocks))
-    elif init.lower() == "lru":
-        Lambda = Lambda[..., :block_size, :block_size]
-        Vc = V.conj().T
-
-        # Lambda = (Lambda * np.ones((blocks, block_size))).ravel()
-        # V = block_diag(*([V] * blocks))
-        # Vinv = block_diag(*([Vc] * blocks))
-        Vinv = Vc
     return Lambda.real, Lambda.imag, V, Vinv, ssm_size
 
 
@@ -358,13 +315,9 @@ def init_ConvS5SSM(ssm_size,
                    k_D,
                    dt_min,
                    dt_max,
-                   C_D_config,
-                   H=7,
-                   W=7,
-                   init="hippo"):  # LRU hippo
-    key = jax.random.PRNGKey(42)
+                   C_D_config):
     Lambda_re_init, Lambda_im_init,\
-        V, Vinv, ssm_size = hippo_initializer(ssm_size, blocks, H, W, key=key, init=init)
+        V, Vinv, ssm_size = hippo_initializer(ssm_size, blocks)
 
     return partial(ConvS5SSM,
                    Lambda_re_init=Lambda_re_init,
