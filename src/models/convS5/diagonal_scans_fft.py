@@ -11,7 +11,7 @@
 import jax
 from jax import lax, numpy as np
 from .conv_ops import vmap_conv
-from src.models.convS5.fft_conv import fft_conv
+from src.models.convS5.fft_conv import fft_conv, fft_transform, complex_matmul_cheap, fft_compute
 
 
 # Jimmy's version of merging kernels
@@ -51,7 +51,7 @@ def merge_conv_kernels(k1, k2):
     return k3.transpose(1,0,2,3)  #permute to adapt to OIHW
 
 
-def merge_convfft_kernels(k1, k2, signal_size=24):
+def merge_convfft_kernels(k1, k2, signal_size=16):
     """
     Should work for convolving general kernels
     (though has not been rigorously tested)
@@ -75,6 +75,7 @@ def merge_convfft_kernels(k1, k2, signal_size=24):
     # the fact that this is actually cross-correlation
 
     # padding = (k2.shape[-1] // 2) + 1
+
     padding = k2.shape[-1] - 1
     k3 = fft_conv(
         signal=k1.transpose(1,0,2,3),
@@ -119,10 +120,8 @@ def conv_binary_operator_fft(q_i, q_j):
     A_i, BU_i = q_i
     A_j, BU_j = q_j
 
-    # AA = merge_convfft_kernels(A_i, A_j)
-    import pdb;pdb.set_trace()
-    AA = merge_conv_kernels(A_i, A_j)
-    A_jBU_i = lax.conv_general_dilated(BU_i, A_j, (1, 1), 'SAME', dimension_numbers=('NHWC', 'OIHW', 'NHWC'))
+    AA = fft_compute(A_i, A_j)
+    A_jBU_i = fft_compute(BU_i, A_j)
 
     return AA, A_jBU_i + BU_j
 
@@ -156,21 +155,22 @@ def apply_convSSM_parallel(A, B, C, us, x0, use_fft=True):
         As = (np.ones((L,)+A.shape) * A)
         Ax = lax.conv_general_dilated(x0.astype(A.dtype), A, (1, 1), "SAME", dimension_numbers=('NHWC', 'OIHW', 'NHWC'))
         Bus = Bus.at[0].add(Ax)
-    # As = A * np.ones((L,)+A.shape)
-    # Bus = Bus.at[0].add(np.expand_dims(A, (0, 1, 2)) * x0)
 
-    # As = As.transpose(0, 3, 4, 1, 2)
-
-    if use_fft:
+    signal_size = 24
+    Bus = Bus.transpose(0, 1, 4, 2, 3)
+    padding = As.shape[-1] - 1 
+    rAs, rBus = [], []
+    for As_i, Bus_i in zip(As, Bus):
         # import pdb;pdb.set_trace()
-        # As = np.stack([np.fft.fft2(a) for a in As], 0)
-        # As = fft(As)
-        # Bus = fft(Bus)
-        _, xs = lax.associative_scan(conv_binary_operator_fft, (As, Bus))
-    else:
-        _, xs = lax.associative_scan(conv_binary_operator, (As, Bus))
+        # fft_conv(Bus_i, As_i, signal_size=signal_size)
+        Bus_i, As_i = fft_transform(Bus_i, As_i, signal_size=signal_size, padding=padding)
+        rAs.append(As_i)
+        rBus.append(Bus_i)
 
-    import pdb;pdb.set_trace()
+    As, Bus = np.stack(rAs, 0), np.stack(rBus, 0)
+    _, xs = lax.associative_scan(conv_binary_operator_fft, (As, Bus))
+    xs = np.fft.ifftn(xs, (signal_size, signal_size), axes=(3, 4)).transpose(0, 1, 3, 4, 2)
+
     ys = 2 * vmap_conv(C, xs).real
 
     return xs[-1], ys
@@ -199,3 +199,4 @@ def apply_convSSM_sequential(A, B, C, us, x0):
                                            dimension_numbers=('NHWC', 'HWIO', 'NHWC')).real
         return x_k, y_k
     return lax.scan(step, np.complex64(x0), us)
+

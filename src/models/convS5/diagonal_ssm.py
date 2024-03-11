@@ -16,7 +16,8 @@ from jax.nn.initializers import he_normal, normal, uniform
 from jax.numpy.linalg import eigh
 from jax.scipy.linalg import block_diag
 
-from . import diagonal_scans
+# from . import diagonal_scans
+from . import diagonal_scans_fft as diagonal_scans
 from .conv_ops import VmapResnetBlock, VmapDiag_CD_Conv, VmapDiagResnetBlock, Half_GLU
 
 
@@ -269,10 +270,11 @@ class ConvS5SSM(nn.Module):
             self.A_bar, self.B_bar = discretize_zoh(self.Lambda,
                                                     B_tilde,
                                                     step)
-            spatial_kernels = True
+            spatial_kernels = True  # False
             if spatial_kernels:
                 self.A_bar = self.A_bar.reshape(-1, 1).repeat(9, -1).reshape(len(self.A_bar), 3, 3)
-                self.A_bar = he_normal()(jax.random.PRNGKey(42), shape=self.A_bar.shape, dtype=self.A_bar.dtype)
+                # self.A_bar = he_normal()(jax.random.PRNGKey(42), shape=self.A_bar.shape, dtype=self.A_bar.dtype)
+                self.A_bar = he_normal(in_axis=1, out_axis=0)(jax.random.PRNGKey(42), shape=[self.A_bar.shape[0]] + [x for x in self.A_bar.shape], dtype=self.A_bar.dtype)
             self.B_bar = self.B_bar.reshape(self.P, self.U, self.k_B, self.k_B).transpose(2, 3, 1, 0)
         else:
             # trick to cache the discretization for step-by-step

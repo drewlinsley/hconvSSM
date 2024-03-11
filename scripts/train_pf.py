@@ -15,7 +15,6 @@
 # Written by Jimmy Smith
 # ------------------------------------------------------------------------------
 
-
 import os
 import os.path as osp
 import socket
@@ -134,7 +133,7 @@ def main():
         p_decode = None
 
         
-    elif config.model in ["convS5_noVQ", "convLSTM_noVQ"]:
+    elif config.model in ["convS5_noVQ", "convLSTM_noVQ", "pf_convS5_noVQ"]:
         model_par_eval = model(parallel=True, training=False)
         # model_par_eval = model(parallel=False, training=False)
         model_seq_eval = model(parallel=False, training=False)
@@ -152,6 +151,8 @@ def main():
     elif config.model in ["cwvae_noVQ"]:
         p_sample = jax.pmap(partial(sample_cwvae_noVQ._sample,
                                      model=model))
+    else:
+        raise NotImplementedError(config.model)
 
     p_train_step = jax.pmap(train_step, axis_name='batch')
     state, schedule_fn = init_model_state(init_rng, model, batch, config)
@@ -175,47 +176,6 @@ def main():
                 save_path = checkpoints.save_checkpoint(ckpt_dir, state_, state_.step, keep=10, keep_every_n_steps=20000)
                 print('Saved checkpoint to', save_path)
                 del state_  # Needed to prevent a memory leak bug
-        if iteration % config.viz_interval == 0:
-            if config.causal_masking:
-                visualize(model, iteration, state, test_loader, config.action_conditioned_1,
-                          config.open_loop_ctx_1, 0,
-                          p_observe, p_imagine_1, p_encode, p_decode)
-                visualize(model, iteration, state, test_loader, config.action_conditioned_2, config.open_loop_ctx_2,
-                          1,
-                          p_observe, p_imagine_2, p_encode, p_decode)
-
-                validate(p_get_eval_metrics, model, iteration, state,
-                         test_loader, steps_per_eval,
-                         config.action_conditioned_1, config.open_loop_ctx_1, p_observe, p_imagine_1, p_encode,
-                         p_decode)
-            elif config.model in ["transformer_noVQ", "performer_noVQ"]:
-                validate_noVQ(p_get_eval_metrics, model, iteration, state,
-                              test_loader, steps_per_eval,
-                              config.action_conditioned_1, config.open_loop_ctx_1, p_observe, p_imagine, p_encode, p_decode, config.eval_seq_len_1)
-                
-            elif config.model in ["convS5_noVQ", 'convLSTM_noVQ']:
-                visualize_noVQ(model, iteration, state, test_loader, config.action_conditioned_1, config.open_loop_ctx_1, 0, p_observe, p_imagine, p_encode, p_decode, config.eval_seq_len_1)
-                visualize_noVQ(model, iteration, state, test_loader, config.action_conditioned_2, config.open_loop_ctx_2, 1, p_observe, p_imagine, p_encode, p_decode, config.eval_seq_len_2)
-
-                validate_noVQ(p_get_eval_metrics, model, iteration, state,
-                              test_loader, steps_per_eval,
-                              config.action_conditioned_1, config.open_loop_ctx_1, p_observe, p_imagine, p_encode, p_decode, config.eval_seq_len_1)
-
-            elif config.model in ["cwvae_noVQ"]:
-                validate_cwvae_noVQ(p_get_eval_metrics, iteration, state, test_loader, steps_per_eval,
-                                    p_sample, config.eval_seq_len_1, config.open_loop_ctx_1)
-
-            else:
-                visualize(model, iteration, state, test_loader, config.action_conditioned_1, config.open_loop_ctx_1,
-                          0, p_observe, p_imagine, p_encode, p_decode)
-                visualize(model, iteration, state, test_loader, config.action_conditioned_2, config.open_loop_ctx_2,
-                          1, p_observe, p_imagine, p_encode, p_decode)
-
-                validate(p_get_eval_metrics, model, iteration, state,
-                         test_loader, steps_per_eval,
-                         config.action_conditioned_1, config.open_loop_ctx_1, p_observe, p_imagine, p_encode,
-                         p_decode)
-
         iteration += 1
 
 
@@ -224,7 +184,6 @@ def train_step(batch, state, rng):
     rngs = {k: r for k, r in zip(config.rng_keys, rngs)}
 
     def loss_fn(params):
-        import pdb;pdb.set_trace()
         variables = {'params': params, **state.model_state}
         out = state.apply_fn(
             variables,
@@ -317,7 +276,7 @@ def visualize(model, iteration, state, test_loader, action_conditioned, open_loo
 def visualize_noVQ(model, iteration, state, test_loader, action_conditioned, open_loop_ctx, log_num, p_observe, p_imagine, p_encode, p_decode, eval_seq_len):
     batch = next(test_loader)
 
-    if config.model in ["convS5_noVQ", 'convLSTM_noVQ']:
+    if config.model in ["convS5_noVQ", 'convLSTM_noVQ', "pf_convS5_noVQ"]:
         predictions, real = sample_convSSM_noVQ.sample(model, state, batch['video'], batch['actions'], action_conditioned, open_loop_ctx, p_observe, p_imagine, p_encode, p_decode, eval_seq_len)
     else:
         predictions, real = sample_transformer_noVQ.sample(model, state, batch['video'], batch['actions'], action_conditioned, open_loop_ctx, p_observe, p_imagine, p_encode, p_decode, eval_seq_len)
@@ -395,7 +354,7 @@ def validate_noVQ(p_get_eval_metrics, model, iteration, state, test_loader, step
     for batch_idx in range(steps_per_eval):
         batch = next(test_loader)
 
-        if config.model in ["convS5_noVQ", 'convLSTM_noVQ']:
+        if config.model in ["convS5_noVQ", 'convLSTM_noVQ', "pf_convS5_noVQ"]:
             predictions, real = sample_convSSM_noVQ.sample(model, state, batch['video'], batch['actions'],
                                                            action_conditioned, open_loop_ctx, p_observe,
                                                            p_imagine, p_encode, p_decode, eval_seq_len)

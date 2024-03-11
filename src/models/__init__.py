@@ -73,7 +73,8 @@ def load_ckpt(ckpt_path, replicate=True, return_config=False,
     
     model = get_model(config, need_encode=need_encode)
     state = checkpoints.restore_checkpoint(osp.join(ckpt_path, 'checkpoints'), None)
-    if config.model in ['teco_convS5',  'convS5', 'teco_S5', 'S5', 'convS5_noVQ', 'convLSTM_noVQ']:
+    import pdb;pdb.set_trace()
+    if config.model in ['teco_convS5',  'convS5', 'teco_S5', 'S5', 'convS5_noVQ', 'convLSTM_noVQ', 'pf_convS5_noVQ']:
         state = TrainState(
             step=state['step'],
             params=state['params'],
