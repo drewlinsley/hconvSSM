@@ -97,7 +97,7 @@ def load_mnist_npz(config, split, num_ds_shards, ds_shard_id):
     return dataset
 
 
-def load_pf(config, split, num_ds_shards, ds_shard_id, T=30, HW=[64, 64, 1]):
+def load_pf(config, split, num_ds_shards, ds_shard_id):
 
     meta = np.load("/media/data_cifs/pathfinder_small/curv_contour_length_14/metadata/combined.npy")
     root = "/media/data_cifs/pathfinder_small/curv_contour_length_14"
@@ -111,9 +111,9 @@ def load_pf(config, split, num_ds_shards, ds_shard_id, T=30, HW=[64, 64, 1]):
         if fl.startswith('gs://'):
             fl = io.BytesIO(file_io.FileIO(fl, 'rb').read())
         image = imread(fl).astype(np.float32)[..., None]
-        image = jax.image.resize(image, shape=HW, method="linear")
+        image = jax.image.resize(image, shape=config.resize, method="linear")
         image = 2 * (image / 255.) - 1
-        image = image[None].repeat(T, 0)  # Add timesteps and a channel dim
+        # image = image[None].repeat(config.image_reps, 0)  # Add timesteps and a channel dim
         label = int(path[3])
         video, actions = image, label
         return video, actions

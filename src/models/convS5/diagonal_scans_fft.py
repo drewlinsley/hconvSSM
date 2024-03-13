@@ -126,7 +126,7 @@ def conv_binary_operator_fft(q_i, q_j):
     return AA, A_jBU_i + BU_j
 
 
-def apply_convSSM_parallel(A, B, C, us, x0, use_fft=True):
+def apply_convSSM_parallel(A, B, C, us, x0, use_fft=True, signal_size=64):
     """Compute the output sequence of the convolutional SSM
         given the input sequence using a parallel scan.
         Computes x_k = A * x_{k-1} + B * u_k
@@ -143,6 +143,7 @@ def apply_convSSM_parallel(A, B, C, us, x0, use_fft=True):
         ys (float32): the conv SSM outputs        (L,bsz, H, W, U)
     """
     L = us.shape[0]
+    signal_size = max(us.shape[2], signal_size)
     Bus = vmap_conv(B, np.complex64(us))
     if len(A.shape) == 1:
         As = (np.eye(len(A)) * A)[None, None, None].repeat(L, 0)
@@ -156,9 +157,8 @@ def apply_convSSM_parallel(A, B, C, us, x0, use_fft=True):
         Ax = lax.conv_general_dilated(x0.astype(A.dtype), A, (1, 1), "SAME", dimension_numbers=('NHWC', 'OIHW', 'NHWC'))
         Bus = Bus.at[0].add(Ax)
 
-    signal_size = 24
     Bus = Bus.transpose(0, 1, 4, 2, 3)
-    padding = As.shape[-1] - 1 
+    padding = As[0].shape[-1] - 1
     rAs, rBus = [], []
     for As_i, Bus_i in zip(As, Bus):
         # import pdb;pdb.set_trace()
@@ -169,11 +169,13 @@ def apply_convSSM_parallel(A, B, C, us, x0, use_fft=True):
 
     As, Bus = np.stack(rAs, 0), np.stack(rBus, 0)
     _, xs = lax.associative_scan(conv_binary_operator_fft, (As, Bus))
-    xs = np.fft.ifftn(xs, (signal_size, signal_size), axes=(3, 4)).transpose(0, 1, 3, 4, 2)
+    oxs = np.fft.ifftn(xs, (signal_size, signal_size), axes=(3, 4)).transpose(0, 1, 3, 4, 2)
+    # Remove extra padded values
+    crop_slices = [slice(None), slice(None), slice(0, us.shape[2]), slice(0, us.shape[3])] 
+    oxs = oxs[tuple(crop_slices)]
+    ys = 2 * vmap_conv(C, oxs).real
 
-    ys = 2 * vmap_conv(C, xs).real
-
-    return xs[-1], ys
+    return oxs[-1], ys
 
 
 def apply_convSSM_sequential(A, B, C, us, x0):

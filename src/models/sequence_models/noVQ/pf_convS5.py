@@ -13,6 +13,7 @@ import optax
 import flax.linen as nn
 import jax
 import jax.numpy as jnp
+import flaim
 
 from src.models.convS5.conv_ops import VmapBasicConv
 from src.models.convS5.diagonal_ssm import init_ConvS5SSM
@@ -71,14 +72,24 @@ class PF_CONVS5_NOVQ(nn.Module):
         self.action_conv = VmapBasicConv(k_size=1,
                                          out_channels=config.d_model)
         self.readout = nn.Dense(2)
+        self.preproc = nn.Conv(config.ssm["ssm_size"], kernel_size=[1, 1])
 
         # Encoder
-        self.encoder = ResNetEncoder(**config.encoder, dtype=self.dtype)
+        # self.encoder = ResNetEncoder(**config.encoder, dtype=self.dtype)
+        model, weights = flaim.get_model(
+            # model_name='convnext_small',
+            model_name='resnet50',
+            pretrained='in1k_256',
+            n_classes=-1,
+            # jit=True,
+        )
+        self.encoder = model
+        self.weights = weights
 
-        # Decoder
-        out_dim = self.config.channels
-        self.decoder = ResNetDecoder(**config.decoder, image_size=0,
-                                     out_dim=out_dim, dtype=self.dtype)
+        # # Decoder
+        # out_dim = self.config.channels
+        # self.decoder = ResNetDecoder(**config.decoder, image_size=0,
+        #                              out_dim=out_dim, dtype=self.dtype)
 
     def sample_timestep(self, encoding, initial_states, action):
         inp = self.encode(encoding)
@@ -97,9 +108,18 @@ class PF_CONVS5_NOVQ(nn.Module):
         return recon, recon_logits, recon, last_states
 
     def encode(self, encodings):
-        out = jax.vmap(self.encoder, 1, 1)(encodings)
+        # out = jax.vmap(self.encoder, 1, 1)(encodings)
+        encodings = encodings.repeat(3, -1)
+        _, out = self.encoder.apply(self.weights, encodings, training=False, mutable=['intermediates'])
+        out = jax.lax.stop_gradient(out["intermediates"]["stage_1"][0])
+        out = self.preproc(out)
+
+        # Replicate over timesteps
+        out = out[None].repeat(self.config.seq_len, 0)
 
         return out
+
+    # def gabor_encode(self, encodings):
 
     def condition(self, encodings, actions, initial_states=None):
         if initial_states is None:
@@ -107,22 +127,21 @@ class PF_CONVS5_NOVQ(nn.Module):
 
         inp = self.encode(encodings)
 
-        # inp is BTHWC, convS5 model needs TBHWC
-        inp = reshape_data(inp)
+        # # inp is BTHWC, convS5 model needs TBHWC
+        # inp = reshape_data(inp)
         inp = self.action_conv(inp)
         # inp = inp[0].max((1, 2))
-        encodings = self.readout(inp)
         last_states, deter = self.sequence_model(inp, initial_states)
         # deter = reshape_data(deter)  # swap back to BTHWC
-        encodings = self.readout(inp)
+        out = deter[-1].mean((1, 2))
+        encodings = self.readout(out)
 
-        return None, last_states, None, None, None
+        return None, encodings, None, None, None
 
     def reconstruct(self, deter):
         recon_logits = jax.vmap(self.decoder, 1, 1)(deter)
         recon = nn.tanh(recon_logits)
         return recon, recon
-
     def __call__(self, video, actions, deterministic=False):
         # video: BTHWC, actions: BT
         print(video.shape)
@@ -137,7 +156,3 @@ class PF_CONVS5_NOVQ(nn.Module):
         out = dict(loss=loss, mse_loss=mse_loss, l1_loss=l1_loss)
         return out
 
-
-
-        
-        
