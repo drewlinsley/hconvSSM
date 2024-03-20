@@ -102,19 +102,31 @@ def load_pf(config, split, num_ds_shards, ds_shard_id):
     meta = np.load("/media/data_cifs/pathfinder_small/curv_contour_length_14/metadata/combined.npy")
     root = "/media/data_cifs/pathfinder_small/curv_contour_length_14"
 
-    fns = np.array_split(meta, num_ds_shards)[ds_shard_id].tolist()
+    if split == "train":
+        # fns = np.array_split(meta, num_ds_shards)[ds_shard_id].tolist()
+        fns = np.asarray(glob.glob(os.path.join("/media/data_cifs/curvy_2snakes/curv_contour_length_14_full/train/*.PNG"))).reshape(-1, 1)
+    elif split == "val" or split == "validation" or split == "test":
+        # Use a hardcoded set of val images for now. Quick hack.
+        fns = np.asarray(glob.glob(os.path.join("/media/data_cifs/curvy_2snakes/curv_contour_length_14_full/val/*.PNG"))).reshape(-1, 1)
+    else:
+        raise NotImplementedError("Split {} not recognized.".format(split))
     print("fns shape", len(fns))
     def read(path):
-        p0 = path[0].decode('UTF-8')
-        p1 = path[1].decode('UTF-8')
-        fl = os.path.join(root, p0, p1)
-        if fl.startswith('gs://'):
-            fl = io.BytesIO(file_io.FileIO(fl, 'rb').read())
+        if len(path) == 1:
+            path = path[0].decode('UTF-8')
+            label = int(path.split("_")[-1].split(".")[0])
+            fl = path
+        else:
+            label = int(path[3])
+            p0 = path[0].decode('UTF-8')
+            p1 = path[1].decode('UTF-8')
+            fl = os.path.join(root, p0, p1)
+            if fl.startswith('gs://'):
+                fl = io.BytesIO(file_io.FileIO(fl, 'rb').read())
         image = imread(fl).astype(np.float32)[..., None]
         image = jax.image.resize(image, shape=config.resize, method="linear")
         image = 2 * (image / 255.) - 1
         # image = image[None].repeat(config.image_reps, 0)  # Add timesteps and a channel dim
-        label = int(path[3])
         video, actions = image, label
         return video, actions
 

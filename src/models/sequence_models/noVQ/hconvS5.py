@@ -68,7 +68,7 @@ class PF_CONVS5_NOVQ(nn.Module):
 
         self.initial_states = initial_states
 
-        # self.action_embeds = nn.Embed(config.action_dim + 1, config.action_embed_dim, dtype=self.dtype)
+        self.action_embeds = nn.Embed(config.action_dim + 1, config.action_embed_dim, dtype=self.dtype)
         self.action_conv = VmapBasicConv(k_size=1,
                                          out_channels=config.d_model)
         self.readout = nn.Dense(2)
@@ -121,6 +121,7 @@ class PF_CONVS5_NOVQ(nn.Module):
 
     # def gabor_encode(self, encodings):
 
+    @jax.jit
     def condition(self, encodings, actions, initial_states=None):
         if initial_states is None:
             initial_states = self.initial_states
@@ -133,8 +134,7 @@ class PF_CONVS5_NOVQ(nn.Module):
         # inp = inp[0].max((1, 2))
         last_states, deter = self.sequence_model(inp, initial_states)
         # deter = reshape_data(deter)  # swap back to BTHWC
-        # out = deter[-1].mean((1, 2))
-        out = deter[-1].max((1, 2))
+        out = deter[-1].mean((1, 2))
         encodings = self.readout(out)
 
         return None, encodings, None, None, None

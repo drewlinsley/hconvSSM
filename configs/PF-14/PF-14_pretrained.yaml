@@ -3,16 +3,15 @@ cache: false # caching available only for encoded datasets
 
 # Training
 multinode: False
-batch_size: 256  # 768  # 96  # 32
-eval_size: 256  # 768  # 96  # 32  # 1024
-num_workers: 64  # 8
+batch_size: 96  # 32
+eval_size: 96  # 32  # 1024
+num_workers: 8
 lr: 0.0003
 lr_schedule: "cosine"
 weight_decay: 0.00001
 total_steps: 300000
-test_steps: 10
 warmup_steps: 5000
-save_interval: 1000
+save_interval: 2000
 viz_interval: 2000
 log_interval: 100
 
@@ -33,7 +32,7 @@ batch_keys: ["video", "actions"]
 # Model
 model: "pf_convS5_noVQ"
 
-loss_weight: 1  # 0.5
+loss_weight: 0.5
 
 encoder: # encoder / decoder are mirrored, with decoder depths reversed
   depths: [64, 128, 256] # 64x64 to 16x16
@@ -47,7 +46,7 @@ d_model: 24  # 256
 
 # Sequence Model
 seq_model:
-  n_layers: 5
+  n_layers: 2
   layer_activation: "gelu"
   dropout: 0.0
   use_norm: True

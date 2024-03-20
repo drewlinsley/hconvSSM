@@ -32,7 +32,6 @@ from jax import random, lax
 import jax.numpy as jnp
 from flax.training import checkpoints
 from flax import jax_utils
-from flax.serialization import to_bytes, from_bytes
 
 from src.data import Data
 from src.train_utils import init_model_state, \
@@ -51,8 +50,6 @@ def main():
     seed_all(config.seed)
 
     files = glob.glob(osp.join(config.output_dir, 'checkpoints', '*'))
-    # files = glob.glob(osp.join("good_pf_ckpts", "*"))
-    # files = sorted(files, key=os.path.getmtime)[-1]
     if len(files) > 0:
         print('Found previous checkpoints', files)
         config.ckpt = config.output_dir
@@ -63,10 +60,10 @@ def main():
         root_dir = os.environ['DATA_DIR']
         os.makedirs(osp.join(root_dir, 'wandb'), exist_ok=True)
 
-        wandb.init(project='teco_old', config=config,
-                   dir=root_dir, id=config.run_id, resume='allow')
-        wandb.run.name = config.run_id
-        wandb.run.save()
+        # wandb.init(project='teco_old', config=config,
+        #            dir=root_dir, id=config.run_id, resume='allow')
+        # wandb.run.name = config.run_id
+        # wandb.run.save()
 
     data = Data(config)
     train_loader = data.create_iterator(train=True)
@@ -147,7 +144,7 @@ def main():
                                      model_par=model_par_eval))
         p_imagine = jax.pmap(partial(sample_convSSM_noVQ._imagine,
                                      model_seq=model_seq_eval))
-        p_encode = None
+        p_encode = model_seq_eval.encode  # jax.pmap(partial(model_seq_eval.encode, model=model))
         p_decode = None
 
 
@@ -158,16 +155,10 @@ def main():
         raise NotImplementedError(config.model)
 
     p_train_step = jax.pmap(train_step, axis_name='batch')
-    p_test_step = jax.pmap(test_step, axis_name='batch')
     state, schedule_fn = init_model_state(init_rng, model, batch, config)
-    if config.ckpt is not None:
-    # if files is not None:
-        state = checkpoints.restore_checkpoint(osp.join(config.ckpt, 'checkpoints'), state)
-        # with open(files, "rb") as f:
-        #     loaded_params_bytes = f.read()
-        # weights = from_bytes(model, loaded_params_bytes)
-        # state = checkpoints.restore_checkpoint(weights, state)
-        print('Restored from checkpoint')
+    # state = checkpoints.restore_checkpoint(osp.join(config.ckpt, 'checkpoints'), state)
+    state = checkpoints.restore_checkpoint("good_pf_ckpts/checkpoint_30001", state)
+    print('Restored from checkpoint')
     print('MODEL LOADED')
     iteration = int(state.step)
     state = jax_utils.replicate(state)
@@ -176,22 +167,12 @@ def main():
 
     rngs = random.split(rng, jax.local_device_count())
 
-    best_test = 1000
-
     while iteration <= config.total_steps:
-        test_loss = test(iteration, model, p_test_step, state, test_loader, schedule_fn, rngs)
-        iteration, state, rngs = train(iteration, model, p_train_step, state, train_loader,
-                                       schedule_fn, rngs)
+        validate(p_get_eval_metrics, model, iteration, state,
+             test_loader, steps_per_eval,
+             config.action_conditioned_1, config.open_loop_ctx_1, p_observe, p_imagine, p_encode,
+             p_decode, rngs)
 
-        if iteration % config.save_interval == 0:
-            test_loss = test(iteration, model, p_test_step, state, test_loader, schedule_fn, rngs)
-            best_test = min(test_loss, best_test)
-            if test_loss < best_test:
-                if is_master_process:
-                    state_ = jax_utils.unreplicate(state)
-                    save_path = checkpoints.save_checkpoint(ckpt_dir, state_, state_.step, keep=10, keep_every_n_steps=20000)
-                    print('Saved checkpoint to', save_path)
-                    del state_  # Needed to prevent a memory leak bug
         iteration += 1
 
 
@@ -220,102 +201,6 @@ def train_step(batch, state, rng):
     )
 
     return new_state, out, new_rng
-
-
-def test_step(batch, state, rng):
-    new_rng, *rngs = random.split(rng, len(config.rng_keys) + 1)
-    rngs = {k: r for k, r in zip(config.rng_keys, rngs)}
-
-    def loss_fn(params):
-        variables = {'params': params, **state.model_state}
-        out = state.apply_fn(
-            variables,
-            video=batch['video'],
-            actions=batch['actions'],
-            rngs=rngs
-        )
-        loss = out['loss']
-        return loss, out
-
-    loss, out = loss_fn(state.params)
-    return loss, out
-
-
-def train(iteration, model, p_train_step, state, train_loader, schedule_fn, rngs):
-    progress = ProgressMeter(
-        config.total_steps,
-        ['time', 'data'] + model.metrics
-    )
-
-    end = time.time()
-    while True:
-        batch = next(train_loader)
-        batch_size = batch['video'].shape[1]
-        progress.update(data=time.time() - end)
-
-        state, return_dict, rngs = p_train_step(batch=batch, state=state, rng=rngs)
-
-        metrics = {k: return_dict[k].mean() for k in model.metrics}
-        metrics = {k: v.astype(jnp.float32) for k, v in metrics.items()}
-        progress.update(n=batch_size, **{k: v for k, v in metrics.items()})
-
-        if is_master_process and iteration % config.log_interval == 0:
-            wandb.log({'train/lr': schedule_fn(iteration)}, step=iteration)
-            wandb.log({**{f'train/{metric}': val
-                        for metric, val in metrics.items()}
-                    }, step=iteration)
-
-        progress.update(time=time.time() - end)
-        end = time.time()
-
-        if iteration % config.log_interval == 0:
-            progress.display(iteration)
-
-        if iteration % config.save_interval == 0 or \
-        iteration % config.viz_interval == 0 or \
-        iteration >= config.total_steps:
-            return iteration, state, rngs
-        
-        iteration += 1
-
-
-def test(iteration, model, p_test_step, state, test_loader, schedule_fn, rngs):
-    progress = ProgressMeter(
-        config.test_steps,
-        ['time', 'data'] + model.metrics,
-        prefix="Test:"
-    )
-
-    end = time.time()
-    losses = []
-    while True:
-        batch = next(test_loader)
-        batch_size = batch['video'].shape[1]
-        progress.update(data=time.time() - end)
-
-        loss, return_dict = p_test_step(batch=batch, state=state, rng=rngs)
-
-        metrics = {k: return_dict[k].mean() for k in model.metrics}
-        metrics = {k: v.astype(jnp.float32) for k, v in metrics.items()}
-        progress.update(n=batch_size, **{k: v for k, v in metrics.items()})
-
-        if is_master_process and iteration % config.log_interval == 0:
-            wandb.log({'test/lr': schedule_fn(iteration)}, step=iteration)
-            wandb.log({**{f'test/{metric}': val
-                        for metric, val in metrics.items()}
-                    }, step=iteration)
-
-        progress.update(time=time.time() - end)
-        end = time.time()
-
-        if iteration % config.log_interval == 0:
-            progress.display(iteration)
-
-        losses.append(loss)
-
-        if iteration >= config.test_steps:
-            return jnp.mean(jnp.stack(losses))
-        iteration += 1
 
 
 def visualize(model, iteration, state, test_loader, action_conditioned, open_loop_ctx, log_num, p_observe, p_imagine, p_encode, p_decode):
@@ -384,22 +269,65 @@ def get_eval_metrics(predictions, real, open_loop_ctx):
            lax.pmean(loss_lpips, axis_name='batch'), lax.pmean(psnr_val, axis_name='batch')
 
 
+def test_step(batch, state, rng):
+    new_rng, *rngs = random.split(rng, len(config.rng_keys) + 1)
+    rngs = {k: r for k, r in zip(config.rng_keys, rngs)}
+
+    def loss_fn(params):
+        variables = {'params': params, **state.model_state}
+        out = state.apply_fn(
+            variables,
+            video=batch['video'],
+            actions=batch['actions'],
+            deterministic=False,
+            rngs=rngs
+        )
+        loss = out['loss']
+        return loss, out
+
+    # aux, grads = jax.value_and_grad(
+    #     loss_fn, has_aux=True)(state.params)
+    variables = {'params': state.params, **state.model_state}
+    out = state.apply_fn(
+        variables,
+        video=batch['video'],
+        actions=batch['actions'],
+        deterministic=False,
+        rngs=rngs
+    )
+    import pdb;pdb.set_trace()
+    correct = (out == batch['actions']).astype(np.float32)
+
+    return new_state, out, new_rng
+
+
 def validate(p_get_eval_metrics, model, iteration, state, test_loader, steps_per_eval, action_conditioned,
-             open_loop_ctx, p_observe, p_imagine, p_encode, p_decode):
+             open_loop_ctx, p_observe, p_imagine, p_encode, p_decode, rng):
     ssim_vals, losses_lpips, psnr_vals = [], [], []
+
+    tf = jax.pmap(test_step, axis_name='batch')
 
     for batch_idx in range(steps_per_eval):
         batch = next(test_loader)
+
+        # PF_CONVS5_NOVQ
+
+        outs = tf(batch, state, rng)
 
         if config.model in ["teco_convS5", "convS5", "teco_S5", "S5"]:
             predictions, real = sample_convSSM.sample(model, state, batch['video'], batch['actions'],
                                                       action_conditioned, open_loop_ctx, p_observe, p_imagine,
                                                       p_encode, p_decode)
-
+        elif config.model in ["pf_convS5_noVQ"]:
+            predictions, real = sample_convSSM.sample(model, state, batch['video'], batch['actions'],
+                                                      action_conditioned, open_loop_ctx, p_observe, p_imagine,
+                                                      p_encode, p_decode)
         elif config.model in ["teco_transformer", "transformer", "performer"]:
             predictions, real = sample_transformer.sample(model, state, batch['video'], batch['actions'],
                                                           action_conditioned, open_loop_ctx, p_observe, p_imagine,
                                                           p_encode, p_decode)
+        else:
+            raise NotImplementedError(config.model)
 
         ssim_val, loss_lpips, psnr_val = p_get_eval_metrics(predictions, real)
 

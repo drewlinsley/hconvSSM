@@ -42,6 +42,7 @@ def _decode(x, model):
 
 
 def _encode(x, model):
+    import pdb;pdb.set_trace()
     return model.vq_fns['encode'](x)
 
 

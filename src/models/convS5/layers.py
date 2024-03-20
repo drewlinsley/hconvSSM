@@ -123,3 +123,4 @@ class StackedLayers(nn.Module):
             x_L, u = self.layers[i](u, initial_states[i])
             last_states.append(x_L)  # keep last state of each layer
         return last_states, u
+

@@ -12,6 +12,7 @@ from typing import Any, Optional, Tuple, Callable
 import flax.linen as nn
 from jax import lax, vmap
 import jax.numpy as jnp
+import jax
 
 
 initializer = nn.initializers.variance_scaling(
@@ -243,6 +244,7 @@ VmapDiag_CD_Conv = nn.vmap(Diag_CD_Conv,
                            split_rngs={"params": False})
 
 
+@jax.jit
 def vmap_conv(B, us):
     """Performs a convolution at each timestep of a sequence using vmap
        to vectorize across the sequence length.

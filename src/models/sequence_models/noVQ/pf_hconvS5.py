@@ -27,7 +27,7 @@ def reshape_data(frames):
     return frames
 
 
-class PF_CONVS5_NOVQ(nn.Module):
+class PF_HCONVS5_NOVQ(nn.Module):
     config: Any
     training: bool
     parallel: bool
@@ -68,7 +68,7 @@ class PF_CONVS5_NOVQ(nn.Module):
 
         self.initial_states = initial_states
 
-        # self.action_embeds = nn.Embed(config.action_dim + 1, config.action_embed_dim, dtype=self.dtype)
+        self.action_embeds = nn.Embed(config.action_dim + 1, config.action_embed_dim, dtype=self.dtype)
         self.action_conv = VmapBasicConv(k_size=1,
                                          out_channels=config.d_model)
         self.readout = nn.Dense(2)
@@ -110,6 +110,8 @@ class PF_CONVS5_NOVQ(nn.Module):
     def encode(self, encodings):
         # out = jax.vmap(self.encoder, 1, 1)(encodings)
         encodings = encodings.repeat(3, -1)
+        import pdb;pdb.set_trace()
+        # _, out = self.encoder.apply(self.weights, encodings, training=False)  # , mutable=['intermediates'])
         _, out = self.encoder.apply(self.weights, encodings, training=False, mutable=['intermediates'])
         out = jax.lax.stop_gradient(out["intermediates"]["stage_1"][0])
         out = self.preproc(out)

@@ -22,6 +22,7 @@ from src.models.sequence_models.VQ.S5 import S5
 from src.models.sequence_models.noVQ.convLSTM import CONVLSTM_NOVQ
 from src.models.sequence_models.noVQ.convS5 import CONVS5_NOVQ
 from src.models.sequence_models.noVQ.pf_convS5 import PF_CONVS5_NOVQ
+from src.models.sequence_models.noVQ.pf_hconvS5 import PF_HCONVS5_NOVQ
 from src.models.sequence_models.VQ.teco_S5 import TECO_S5
 from src.models.sequence_models.VQ.teco_convS5 import TECO_CONVS5
 from src.models.sequence_models.VQ.convS5 import CONVS5
@@ -133,6 +134,9 @@ def get_model(config, need_encode=None, xmap=False, **kwargs):
                         config=config, **kwargs)
     elif config.model == 'pf_convS5_noVQ':
         model = partial(PF_CONVS5_NOVQ,
+                        config=config, **kwargs)
+    elif config.model == 'pf_hconvS5_noVQ':
+        model = partial(PF_HCONVS5_NOVQ,
                         config=config, **kwargs)
     elif config.model == 'teco_convS5':
         model = partial(TECO_CONVS5,

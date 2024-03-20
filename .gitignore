@@ -4,3 +4,4 @@ cudnn*
 *.egg*
 __pycache__
 logs/
+good_pf_ckpts/
