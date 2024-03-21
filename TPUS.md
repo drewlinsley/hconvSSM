@@ -4,8 +4,8 @@ ZONE=us-central1-a
 gcloud compute tpus tpu-vm create $TPUNAME --zone=$ZONE --accelerator-type=v3-8 --preemptible --version=tpu-ubuntu2204-base
 gcloud alpha compute tpus tpu-vm attach-disk $TPUNAME --zone=$ZONE --disk pathfinder --mode read
 
-gcloud compute tpus tpu-vm ssh $TPUNAME --zone=$ZONE --command="pip install jax[tpu] -f https://storage.googleapis.com/jax-releases/libtpu_releases.html; sudo mkdir -p /mnt/disks/pathfinder; sudo mount -o discard,defaults,noload  /dev/sdb /mnt/disks/pathfinder"
-gcloud compute tpus tpu-vm ssh $TPUNAME --zone=$ZONE --command="git clone https://github.com/drewlinsley/hconvSSM.git"
+gcloud compute tpus tpu-vm ssh $TPUNAME --zone=$ZONE --command="pip install jax[tpu]==0.3.21 -f https://storage.googleapis.com/jax-releases/libtpu_releases.html; pip install -r requirements; sudo mkdir -p /mnt/disks/pathfinder; sudo mount -o discard,defaults,noload  /dev/sdb /mnt/disks/pathfinder"
+gcloud compute tpus tpu-vm ssh $TPUNAME --zone=$ZONE --command="git clone https://github.com/drewlinsley/hconvSSM.git; export PYTHONPATH=$PYTHONPATH:$(pwd)"
 
 gcloud compute tpus tpu-vm ssh $TPUNAME --zone=$ZONE
 
