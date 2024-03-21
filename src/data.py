@@ -99,15 +99,18 @@ def load_mnist_npz(config, split, num_ds_shards, ds_shard_id):
 
 def load_pf(config, split, num_ds_shards, ds_shard_id):
 
-    meta = np.load("/media/data_cifs/pathfinder_small/curv_contour_length_14/metadata/combined.npy")
-    root = "/media/data_cifs/pathfinder_small/curv_contour_length_14"
+    # meta = np.load("/media/data_cifs/pathfinder_small/curv_contour_length_14/metadata/combined.npy")
+    # root = "/media/data_cifs/pathfinder_small/curv_contour_length_14"
+    root = "/mnt/disks/pathfinder"
 
     if split == "train":
         # fns = np.array_split(meta, num_ds_shards)[ds_shard_id].tolist()
-        fns = np.asarray(glob.glob(os.path.join("/media/data_cifs/curvy_2snakes/curv_contour_length_14_full/train/*.PNG"))).reshape(-1, 1)
+        # fns = np.asarray(glob.glob(os.path.join("/media/data_cifs/curvy_2snakes/curv_contour_length_14_full/train/*.PNG"))).reshape(-1, 1)
+        fns = np.asarray(glob.glob(os.path.join(root, "train", "*.PNG")))
     elif split == "val" or split == "validation" or split == "test":
         # Use a hardcoded set of val images for now. Quick hack.
-        fns = np.asarray(glob.glob(os.path.join("/media/data_cifs/curvy_2snakes/curv_contour_length_14_full/val/*.PNG"))).reshape(-1, 1)
+        # fns = np.asarray(glob.glob(os.path.join("/media/data_cifs/curvy_2snakes/curv_contour_length_14_full/val/*.PNG"))).reshape(-1, 1)
+        fns = np.asarray(glob.glob(os.path.join(root, "val", "*.PNG")))
     else:
         raise NotImplementedError("Split {} not recognized.".format(split))
     print("fns shape", len(fns))
