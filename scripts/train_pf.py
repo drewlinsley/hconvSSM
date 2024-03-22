@@ -136,7 +136,7 @@ def main():
         p_decode = None
 
         
-    elif config.model in ["convS5_noVQ", "convLSTM_noVQ", "pf_convS5_noVQ"]:
+    elif config.model in ["convS5_noVQ", "convLSTM_noVQ", "pf_convS5_noVQ", "pf_hconvS5_noVQ"]:
         model_par_eval = model(parallel=True, training=False)
         # model_par_eval = model(parallel=False, training=False)
         model_seq_eval = model(parallel=False, training=False)
@@ -184,7 +184,8 @@ def main():
                                        schedule_fn, rngs)
 
         if iteration % config.save_interval == 0:
-            test_loss = test(iteration, model, p_test_step, state, test_loader, schedule_fn, rngs)
+            test_loss = test(iteration, model_par_eval, p_test_step, state, test_loader, schedule_fn, rngs)
+            # test_loss = test(iteration, model, p_test_step, state, test_loader, schedule_fn, rngs)
             best_test = min(test_loss, best_test)
             if test_loss < best_test:
                 if is_master_process:

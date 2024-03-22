@@ -24,3 +24,5 @@ gdown
 tensorstore==0.1.33
 gin-config
 scikit-image
+opencv-python
+

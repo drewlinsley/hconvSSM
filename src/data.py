@@ -7,6 +7,7 @@
 
 import os
 import glob
+import socket
 import os.path as osp
 import numpy as np
 from flax import jax_utils
@@ -17,7 +18,8 @@ import tensorflow_datasets as tfds
 import tensorflow_io as tfio
 from tensorflow.python.lib.io import file_io
 import io
-from skimage.io import imread
+# from skimage.io import imread
+import cv2
 
 
 def is_tfds_folder(path):
@@ -97,11 +99,15 @@ def load_mnist_npz(config, split, num_ds_shards, ds_shard_id):
     return dataset
 
 
-def load_pf(config, split, num_ds_shards, ds_shard_id):
+def load_pf(config, split, num_ds_shards, ds_shard_id, pnode=False):
 
     # meta = np.load("/media/data_cifs/pathfinder_small/curv_contour_length_14/metadata/combined.npy")
     # root = "/media/data_cifs/pathfinder_small/curv_contour_length_14"
-    root = "/mnt/disks/pathfinder"
+    # root = "/mnt/disks/pathfinder"
+    if pnode:
+        root = "/media/data_cifs/curvy_2snakes/curv_contour_length_14_full/"
+    else:
+        root = "/mnt/disks/pathfinder"
 
     if split == "train":
         # fns = np.array_split(meta, num_ds_shards)[ds_shard_id].tolist()
@@ -115,18 +121,23 @@ def load_pf(config, split, num_ds_shards, ds_shard_id):
         raise NotImplementedError("Split {} not recognized.".format(split))
     print("fns shape", len(fns))
     def read(path):
-        if len(path) == 1:
-            path = path[0].decode('UTF-8')
-            label = int(path.split("_")[-1].split(".")[0])
-            fl = path
-        else:
-            label = int(path[3])
-            p0 = path[0].decode('UTF-8')
-            p1 = path[1].decode('UTF-8')
-            fl = os.path.join(root, p0, p1)
-            if fl.startswith('gs://'):
-                fl = io.BytesIO(file_io.FileIO(fl, 'rb').read())
-        image = imread(fl).astype(np.float32)[..., None]
+        # path = path[0].decode('UTF-8')
+        path = path.decode('UTF-8')
+        label = int(path.split("_")[-1].split(".")[0])
+        fl = path
+        # if len(path) == 1:
+        #     path = path[0].decode('UTF-8')
+        #     label = int(path.split("_")[-1].split(".")[0])
+        #     fl = path
+        # else:
+        #     label = int(path[3])
+        #     p0 = path[0].decode('UTF-8')
+        #     p1 = path[1].decode('UTF-8')
+        #     fl = os.path.join(root, p0, p1)
+        #     if fl.startswith('gs://'):
+        #         fl = io.BytesIO(file_io.FileIO(fl, 'rb').read())
+        # image = imread(fl).astype(np.float32)[..., None]
+        image = cv2.imread(fl, 0).astype(np.float32)[..., None]
         image = jax.image.resize(image, shape=config.resize, method="linear")
         image = 2 * (image / 255.) - 1
         # image = image[None].repeat(config.image_reps, 0)  # Add timesteps and a channel dim
@@ -200,6 +211,10 @@ class Data:
     def __init__(self, config, xmap=False):
         self.config = config
         self.xmap = xmap
+        if "serre" in socket.gethostname():
+            self.pnode = True
+        else:
+            self.pnode = False
         print('Dataset:', config.data_path)
 
     @property
@@ -235,7 +250,7 @@ class Data:
                 print('loading mnist')
                 dataset = load_mnist_npz(self.config, split_name, num_ds_shards, ds_shard_id)
             elif 'pathfinder' in self.config.data_path:
-                dataset = load_pf(self.config, split_name, num_ds_shards, ds_shard_id)
+                dataset = load_pf(self.config, split_name, num_ds_shards, ds_shard_id, pnode=self.pnode)
             else:
                 dataset = load_video(self.config, split_name, num_ds_shards, ds_shard_id)
         else:
