@@ -8,10 +8,12 @@ av==10.0.0
 # flax==0.7.4
 # chex==0.1.6
 # flax
-# chex
+chex
+orbax
+flaim
 gcsfs==2022.7.1
-tensorflow_cpu==2.12.0
-# tensorflow_cpu
+# tensorflow_cpu==2.12.0
+tensorflow_cpu
 tensorflow_datasets==4.8.3
 tensorflow_io==0.31.0
 tensorflow_gan==2.1.0
