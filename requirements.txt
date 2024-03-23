@@ -10,8 +10,8 @@ av==10.0.0
 # flax
 chex
 # orbax
-orbax-checkpoint
-orbax-export
+# orbax-checkpoint
+# orbax-export
 flaim
 gcsfs==2022.7.1
 # tensorflow_cpu==2.12.0
@@ -26,7 +26,7 @@ lpips_jax
 numpy
 internetarchive
 gdown
-tensorstore==0.1.33
+# tensorstore==0.1.33
 gin-config
 scikit-image
 opencv-python
