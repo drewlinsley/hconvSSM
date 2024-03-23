@@ -140,7 +140,7 @@ def init_model(
 	model: nn.Module,
 	jit: bool = True,
 	# prng: T.Optional[jax.random.KeyArray] = None,
-    prng=None,
+        prng=None,
 	input_size: int = 224,
 	):
 	"""
@@ -192,7 +192,7 @@ def get_model(
 	n_classes: int = 0,
 	jit: bool = True,
 	# prng: T.Optional[jax.random.KeyArray] = None,
-    prng=None,
+        prng=None,
 	norm_stats: bool = False,
 	) -> T.Union[T.Tuple[nn.Module, T.Dict], T.Tuple[nn.Module, T.Dict, T.Dict]]:
 	"""
