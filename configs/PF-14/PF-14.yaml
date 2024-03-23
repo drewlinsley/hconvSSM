@@ -9,7 +9,7 @@ num_workers: 64  # 8
 lr: 0.0003
 lr_schedule: "cosine"
 weight_decay: 0.00001
-total_steps: 300000
+total_steps: 30000000
 test_steps: 10
 warmup_steps: 5000
 save_interval: 1000
@@ -47,11 +47,11 @@ d_model: 24  # 256
 
 # Sequence Model
 seq_model:
-  n_layers: 5
+  n_layers: 2
   layer_activation: "gelu"
   dropout: 0.0
   use_norm: True
-  prenorm: False
+  prenorm: True  # False
   per_layer_skip: True
   num_groups: 1  # 32
   squeeze_excite: False
@@ -59,7 +59,7 @@ seq_model:
 
 # SSM
 ssm:
-  ssm_size: 24
+  ssm_size: 48
   blocks: 1
   clip_eigs: True
   B_kernel_size: 3
