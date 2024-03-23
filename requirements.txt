@@ -1,4 +1,4 @@
-wandb
+# wandb
 tqdm
 ipdb
 pyyaml
@@ -10,6 +10,8 @@ av==10.0.0
 # flax
 chex
 orbax
+orbax-checkpoint
+orbax-export
 flaim
 gcsfs==2022.7.1
 # tensorflow_cpu==2.12.0
