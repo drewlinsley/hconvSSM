@@ -9,7 +9,7 @@ av==10.0.0
 # chex==0.1.6
 # flax
 chex
-orbax
+# orbax
 orbax-checkpoint
 orbax-export
 flaim
