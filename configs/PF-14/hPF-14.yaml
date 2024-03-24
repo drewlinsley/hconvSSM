@@ -48,11 +48,11 @@ d_model: 24  # 256
 # Sequence Model
 seq_model:
   n_layers: 2
-  layer_activation: "relu"  # "gelu"
+  layer_activation: "softplus"  # "relu"  # "gelu"
   dropout: 0.
   use_norm: True
   prenorm: False
-  per_layer_skip: True
+  per_layer_skip: False  # True
   num_groups: 1  # 32
   squeeze_excite: False
   skip_connections: False
