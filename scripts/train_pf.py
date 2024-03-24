@@ -495,14 +495,18 @@ if __name__ == '__main__':
     parser.add_argument('-c', '--config', type=str, required=True)
     args = parser.parse_args()
 
-    args.run_id = args.output_dir
+    if "gs://" in args.output_dir:
+        args.run_id = "{}_{}".format(args.output_dir.split("/")[-1], np.random.randint(0, 100000))
+    else:
+        args.run_id = args.output_dir
 
     if not osp.isabs(args.output_dir):
         if 'DATA_DIR' not in os.environ:
             os.environ['DATA_DIR'] = 'logs'
             print('DATA_DIR environment variable not set, default to logs/')
         root_folder = os.environ['DATA_DIR']
-        args.output_dir = osp.join(root_folder, args.output_dir)
+        if "gs://" not in args.output_dir:
+            args.output_dir = osp.join(root_folder, args.output_dir)
 
     config = yaml.safe_load(open(args.config, 'r'))
     config['data_path'] = args.data_dir
