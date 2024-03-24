@@ -186,8 +186,8 @@ def main():
         if iteration % config.save_interval == 0:
             test_loss = test(iteration, model_par_eval, p_test_step, state, test_loader, schedule_fn, rngs)
             # test_loss = test(iteration, model, p_test_step, state, test_loader, schedule_fn, rngs)
-            best_test = min(test_loss, best_test)
             if test_loss < best_test:
+                best_test = min(test_loss, best_test)
                 if is_master_process:
                     state_ = jax_utils.unreplicate(state)
                     save_path = checkpoints.save_checkpoint(ckpt_dir, state_, state_.step, keep=10, keep_every_n_steps=20000)
@@ -224,8 +224,8 @@ def train_step(batch, state, rng):
 
 
 def test_step(batch, state, rng):
-    new_rng, *rngs = random.split(rng, len(config.rng_keys) + 1)
-    rngs = {k: r for k, r in zip(config.rng_keys, rngs)}
+    # new_rng, *rngs = random.split(rng, len(config.rng_keys) + 1)
+    # rngs = {k: r for k, r in zip(config.rng_keys, rngs)}
 
     def loss_fn(params):
         variables = {'params': params, **state.model_state}
@@ -233,7 +233,7 @@ def test_step(batch, state, rng):
             variables,
             video=batch['video'],
             actions=batch['actions'],
-            rngs=rngs
+            # rngs=rngs
         )
         loss = out['loss']
         return loss, out
@@ -301,7 +301,7 @@ def test(iteration, model, p_test_step, state, test_loader, schedule_fn, rngs):
         progress.update(n=batch_size, **{k: v for k, v in metrics.items()})
 
         if is_master_process and iteration % config.log_interval == 0:
-            wandb.log({'test/lr': schedule_fn(iteration)}, step=iteration)
+            # wandb.log({'test/lr': schedule_fn(iteration)}, step=iteration)
             wandb.log({**{f'test/{metric}': val
                         for metric, val in metrics.items()}
                     }, step=iteration)

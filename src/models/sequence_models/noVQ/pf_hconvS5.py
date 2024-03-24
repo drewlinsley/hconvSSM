@@ -8,10 +8,13 @@
 # Written by Jimmy Smith
 # ------------------------------------------------------------------------------
 
+import os
+import numpy as np
 from typing import Optional, Any
 import optax
 import flax.linen as nn
 import jax
+from jax import lax
 import jax.numpy as jnp
 import flaim
 
@@ -55,20 +58,19 @@ class PF_HCONVS5_NOVQ(nn.Module):
         self.sequence_model = StackedLayers(**self.config.seq_model,
                                             ssm=self.ssm,
                                             training=self.training,
+                                            d_model=self.config.d_model,
                                             parallel=self.parallel)
 
         initial_states = []
         bsz_device, _ = divmod(config.batch_size, jax.device_count())
         for i in range(config.seq_model['n_layers']):
-            initial_states.append(jnp.zeros((bsz_device,
-                                             config.latent_height,
-                                             config.latent_width,
-                                             config.ssm['ssm_size']//2))
-                                  )
-
+            state = jnp.zeros((bsz_device,
+                config.latent_height,
+                config.latent_width,
+                config.ssm['ssm_size']//2))
+            initial_states.append((state, state))  # Add states for E/I
         self.initial_states = initial_states
-
-        self.action_embeds = nn.Embed(config.action_dim + 1, config.action_embed_dim, dtype=self.dtype)
+        # self.action_embeds = nn.Embed(config.action_dim + 1, config.action_embed_dim, dtype=self.dtype)
         self.action_conv = VmapBasicConv(k_size=1,
                                          out_channels=config.d_model)
         self.readout = nn.Dense(2)
@@ -76,15 +78,21 @@ class PF_HCONVS5_NOVQ(nn.Module):
 
         # Encoder
         # self.encoder = ResNetEncoder(**config.encoder, dtype=self.dtype)
-        model, weights = flaim.get_model(
-            # model_name='convnext_small',
-            model_name='resnet50',
-            pretrained='in1k_256',
-            n_classes=-1,
-            # jit=True,
-        )
-        self.encoder = model
-        self.weights = weights
+        # model, weights = flaim.get_model(
+        #     # model_name='convnext_small',
+        #     model_name='resnet50',
+        #     pretrained='in1k_256',
+        #     n_classes=-1,
+        #     # jit=True,
+        # )
+        # self.encoder = model
+        # self.weights = weights
+        kernel = np.load(os.path.join("weights", "gabors_for_contours_7.npy"), allow_pickle=True, encoding="latin1").item()["s1"][0]
+        ks = kernel.shape
+        kernel = kernel.reshape(ks[3], ks[2], ks[0], ks[1])
+        kernel = kernel[1:]  # Reduce to 24 channels
+        kernel = np.ascontiguousarray(kernel)
+        self.weights = kernel
 
         # # Decoder
         # out_dim = self.config.channels
@@ -109,12 +117,13 @@ class PF_HCONVS5_NOVQ(nn.Module):
 
     def encode(self, encodings):
         # out = jax.vmap(self.encoder, 1, 1)(encodings)
-        encodings = encodings.repeat(3, -1)
-        import pdb;pdb.set_trace()
+        # encodings = encodings.repeat(3, -1)
         # _, out = self.encoder.apply(self.weights, encodings, training=False)  # , mutable=['intermediates'])
-        _, out = self.encoder.apply(self.weights, encodings, training=False, mutable=['intermediates'])
-        out = jax.lax.stop_gradient(out["intermediates"]["stage_1"][0])
-        out = self.preproc(out)
+        # _, out = self.encoder.apply(self.weights, encodings, training=False, mutable=['intermediates'])
+        # out = jax.lax.stop_gradient(out["intermediates"]["stage_1"][0])
+        # out = self.preproc(out)
+        out = lax.conv_general_dilated(encodings, self.weights, (1, 1), padding="SAME", dimension_numbers=["NHWC", "OIHW", "NHWC"])
+        # out = jax.lax.stop_gradient(out)
 
         # Replicate over timesteps
         out = out[None].repeat(self.config.seq_len, 0)
