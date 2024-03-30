@@ -33,6 +33,7 @@ import jax.numpy as jnp
 from flax.training import checkpoints
 from flax import jax_utils
 from flax.serialization import to_bytes, from_bytes
+import orbax.checkpoint as ocp
 
 from src.data import Data
 from src.train_utils import init_model_state, \
@@ -44,43 +45,39 @@ from src.models.sampling import sample_convSSM_noVQ, sample_transformer_noVQ, sa
 from src import runtime_metrics
 
 
-
 def main():
     rng = random.PRNGKey(config.seed)
     rng, init_rng = random.split(rng)
     seed_all(config.seed)
 
-    files = glob.glob(osp.join(config.output_dir, 'checkpoints', '*'))
-    # files = glob.glob(osp.join("good_pf_ckpts", "*"))
-    # files = sorted(files, key=os.path.getmtime)[-1]
-    if len(files) > 0:
-        print('Found previous checkpoints', files)
-        config.ckpt = config.output_dir
+    options = ocp.CheckpointManagerOptions(max_to_keep=3)
+    mngr = ocp.CheckpointManager(config.output_dir, options=options)
+    files = mngr.all_steps()
+
+    if len(files):
+        print('Found previous checkpoints: {}'.format(files))
+        config.ckpt = mngr.latest_step()
     else:
+        config.output_dir = ocp.test_utils.erase_and_create_empty(config.output_dir)
         config.ckpt = None
 
     if is_master_process:
         root_dir = os.environ['DATA_DIR']
         os.makedirs(osp.join(root_dir, 'wandb'), exist_ok=True)
-
-        wandb.init(project='teco_old', config=config,
+        run = wandb.init(project='teco_old', config=config,
                    dir=root_dir, id=config.run_id, resume='allow')
         wandb.run.name = config.run_id
-        wandb.run.save()
+        # wandb.run.save()
 
     data = Data(config)
     train_loader = data.create_iterator(train=True)
     test_loader = data.create_iterator(train=False)
-    print('MODEL LOADED1')
     p_get_eval_metrics = jax.pmap(partial(get_eval_metrics,
                                           open_loop_ctx=config.open_loop_ctx_1),
                                   axis_name='batch')
     steps_per_eval = int(config.eval_size/config.batch_size)
-    print('MODEL LOADED1')
     batch = next(train_loader)
-    print('MODEL LOADED1')
     batch = get_first_device(batch)
-    print('MODEL LOADED1')
     model = get_model(config)
     print(config.model)
     print(model)
@@ -161,18 +158,10 @@ def main():
     p_test_step = jax.pmap(test_step, axis_name='batch')
     state, schedule_fn = init_model_state(init_rng, model, batch, config)
     if config.ckpt is not None:
-    # if files is not None:
-        state = checkpoints.restore_checkpoint(osp.join(config.ckpt, 'checkpoints'), state)
-        # with open(files, "rb") as f:
-        #     loaded_params_bytes = f.read()
-        # weights = from_bytes(model, loaded_params_bytes)
-        # state = checkpoints.restore_checkpoint(weights, state)
-        print('Restored from checkpoint')
-    print('MODEL LOADED')
+        state = mngr.restore(config.ckpt, args=ocp.args.StandardRestore(state))
+        print('Restored from checkpoint {}'.format(config.ckpt))
     iteration = int(state.step)
     state = jax_utils.replicate(state)
-
-    ckpt_dir = osp.join(config.output_dir, 'checkpoints')
 
     rngs = random.split(rng, jax.local_device_count())
 
@@ -190,10 +179,12 @@ def main():
                 best_test = min(test_loss, best_test)
                 if is_master_process:
                     state_ = jax_utils.unreplicate(state)
-                    save_path = checkpoints.save_checkpoint(ckpt_dir, state_, state_.step, keep=10, keep_every_n_steps=20000)
-                    print('Saved checkpoint to', save_path)
+                    success = mngr.save(state_.step, args=ocp.args.StandardSave(state_))
+                    if success:
+                        print('Saved checkpoint {} to {}'.format(state_.step, config.output_dir))
                     del state_  # Needed to prevent a memory leak bug
         iteration += 1
+    mngr.wait_until_finished()
 
 
 def train_step(batch, state, rng):
