@@ -5,3 +5,4 @@ cudnn*
 __pycache__
 logs/
 good_pf_ckpts/
+google-cloud-sdk/

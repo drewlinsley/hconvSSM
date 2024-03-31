@@ -1,3 +1,5 @@
+import os
+
 from functools import partial
 from typing import Iterable, Tuple, Union
 
@@ -5,6 +7,9 @@ import numpy as np
 import jax
 import jax.numpy as jnp
 from jax import lax
+
+from skimage import io
+from skimage.transform import rescale, resize
 
 
 def complex_matmul(a: jnp.ndarray, b: jnp.ndarray, groups: int = 1) -> jnp.ndarray:
@@ -381,4 +386,22 @@ class FFTConv:
             groups=self.groups,
             signal_size=self.signal_size
         )
+
+
+if __name__ == '__main__':
+    kernel = np.load(os.path.join("weights", "gabors_for_contours_11.npy"), allow_pickle=True, encoding="latin1").item()["s1"][0]
+    ks = kernel.shape
+    kernel = kernel.reshape(ks[3], ks[2], ks[0], ks[1])
+    kernel = kernel[1:]  # Reduce to 24 channels
+    # kernel = np.ascontiguousarray(kernel)
+
+    image = io.imread(os.path.join("data", "test.png")) 
+    x = image[..., [0]] / 255.
+    x = resize(x, (x.shape[0] // 4, x.shape[1] // 4), anti_aliasing=True) 
+    x = x[None]
+    import pdb;pdb.set_trace()
+    from matplotlib import pyplot as plt
+    out = lax.conv_general_dilated(x, kernel, (1, 1), padding="SAME", dimension_numbers=["NHWC", "OIHW", "NHWC"])
+    plt.subplot(121);plt.imshow(out[0, ..., 0]);plt.subplot(122);plt.imshow(kernel[0, 0]);plt.show()
+
 

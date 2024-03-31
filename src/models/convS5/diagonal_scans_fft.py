@@ -125,6 +125,7 @@ def conv_binary_operator_fft(q_i, q_j):
 
     return AA, A_jBU_i + BU_j
 
+
 def apply_convSSM_parallel(A, B, C, us, x0, use_fft=True, signal_size=64):
     """Compute the output sequence of the convolutional SSM
         given the input sequence using a parallel scan.
