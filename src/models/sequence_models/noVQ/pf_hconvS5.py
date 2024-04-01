@@ -89,8 +89,8 @@ class PF_HCONVS5_NOVQ(nn.Module):
         # self.weights = weights
         kernel = np.load(os.path.join("weights", "gabors_for_contours_7.npy"), allow_pickle=True, encoding="latin1").item()["s1"][0]
         ks = kernel.shape
-        kernel = kernel.reshape(ks[3], ks[2], ks[0], ks[1])
-        kernel = kernel[1:]  # Reduce to 24 channels
+        kernel = kernel.transpose(3, 2, 0, 1)
+        kernel = kernel[:-1]  # Reduce to 24 channels
         kernel = np.ascontiguousarray(kernel)
         self.weights = kernel
 

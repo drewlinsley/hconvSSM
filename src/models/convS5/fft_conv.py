@@ -391,6 +391,7 @@ class FFTConv:
 if __name__ == '__main__':
     kernel = np.load(os.path.join("weights", "gabors_for_contours_11.npy"), allow_pickle=True, encoding="latin1").item()["s1"][0]
     ks = kernel.shape
+    import pdb;pdb.set_trace()
     kernel = kernel.reshape(ks[3], ks[2], ks[0], ks[1])
     kernel = kernel[1:]  # Reduce to 24 channels
     # kernel = np.ascontiguousarray(kernel)
