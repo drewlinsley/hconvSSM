@@ -127,7 +127,7 @@ def conv_binary_operator_fft(q_i, q_j):
     return AA, A_jBU_i + BU_j
 
 
-def apply_convSSM_parallel(A, B, C, us, x0, use_fft=True):
+def apply_convSSM_parallel(A, B, C, us, x0, use_fft=False):
     """Compute the output sequence of the convolutional SSM
         given the input sequence using a parallel scan.
         Computes x_k = A * x_{k-1} + B * u_k
@@ -160,6 +160,7 @@ def apply_convSSM_parallel(A, B, C, us, x0, use_fft=True):
     # Bus = Bus.at[0].add(np.expand_dims(A, (0, 1, 2)) * x0)
 
     # As = As.transpose(0, 3, 4, 1, 2)
+    import pdb;pdb.set_trace()
 
     if use_fft:
         # import pdb;pdb.set_trace()
@@ -170,7 +171,6 @@ def apply_convSSM_parallel(A, B, C, us, x0, use_fft=True):
     else:
         _, xs = lax.associative_scan(conv_binary_operator, (As, Bus))
 
-    import pdb;pdb.set_trace()
     ys = 2 * vmap_conv(C, xs).real
 
     return xs[-1], ys

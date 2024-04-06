@@ -30,7 +30,7 @@ from functools import partial
 import jax
 from jax import random, lax
 import jax.numpy as jnp
-from flax.training import checkpoints
+# from flax.training import checkpoints
 from flax import jax_utils
 
 from src.data import Data

@@ -120,8 +120,10 @@ def conv_binary_operator_fft(q_i, q_j):
     A_i, BU_i = q_i
     A_j, BU_j = q_j
 
-    AA = fft_compute(A_i, A_j)
+    import pdb;pdb.set_trace()
     A_jBU_i = fft_compute(BU_i, A_j)
+    AA = fft_compute(A_i, A_j)
+    # A_jBU_i = fft_compute(BU_i, A_j)
 
     return AA, A_jBU_i + BU_j
 

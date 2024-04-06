@@ -1,3 +1,6 @@
+import os
+import numpy as np
+
 from functools import partial
 from typing import Iterable, Tuple, Union
 
@@ -7,8 +10,11 @@ from torch import Tensor, nn
 from torch.fft import irfftn, rfftn, ifftn, fftn
 from math import ceil, floor
 
+from skimage import io
+from skimage.transform import rescale, resize
 
-def complex_matmul(a: Tensor, b: Tensor, groups: int = 1) -> Tensor:
+
+def complex_matmul_bad_names(a: Tensor, b: Tensor, groups: int = 1) -> Tensor:
     """Multiplies two complex-valued tensors."""
     # Scalar matrix multiplication of two tensors, over only the first channel
     # dimensions. Dimensions 3 and higher will have the same shape after multiplication.
@@ -29,6 +35,51 @@ def complex_matmul(a: Tensor, b: Tensor, groups: int = 1) -> Tensor:
     c.real, c.imag = real, imag
 
     return c.view(c.size(0), -1, *c.shape[3:])
+
+
+def complex_matmul(signal_fr: Tensor, kernel_fr: Tensor, groups: int = 1) -> Tensor:
+    rsignal_fr = signal_fr.view(signal_fr.size(0), groups, -1, *signal_fr.shape[2:])
+    rkernel_fr = kernel_fr.view(groups, -1, *kernel_fr.shape[1:])
+
+    rsignal_fr = torch.movedim(rsignal_fr, 2, rsignal_fr.dim() - 1).unsqueeze(-2)
+    rkernel_fr = torch.movedim(rkernel_fr, (1, 2), (rkernel_fr.dim() - 1, rkernel_fr.dim() - 2))
+
+    # complex value matrix multiplication
+    real = rsignal_fr.real @ rkernel_fr.real - rsignal_fr.imag @ rkernel_fr.imag
+    imag = rsignal_fr.imag @ rkernel_fr.real + rsignal_fr.real @ rkernel_fr.imag
+    real = torch.movedim(real, real.dim() - 1, 2).squeeze(-1)
+    imag = torch.movedim(imag, imag.dim() - 1, 2).squeeze(-1)
+    real_alt = torch.einsum("NCHW,OIHW->NOHW", signal_fr.real, kernel_fr.real) - torch.einsum("NCHW,OIHW->NOHW", signal_fr.imag, kernel_fr.imag)
+    imag_alt = torch.einsum("NCHW,OIHW->NOHW", signal_fr.imag, kernel_fr.real) + torch.einsum("NCHW,OIHW->NOHW", signal_fr.real, kernel_fr.imag)
+    output_fr = torch.zeros(real.shape, dtype=torch.complex64, device=signal_fr.device)
+    output_fr.real, output_fr.imag = real, imag
+
+    output_fr = output_fr.view(output_fr.size(0), -1, *output_fr.shape[3:])
+
+
+    output_fr = torch.zeros(real_alt.shape, dtype=torch.complex64, device=signal_fr.device)
+    output_fr.real, output_fr.imag = real_alt, imag_alt
+
+    return output_fr
+
+
+def complex_matmul_good_names(signal_fr: Tensor, kernel_fr: Tensor, groups: int = 1) -> Tensor:
+    signal_fr = signal_fr.view(signal_fr.size(0), groups, -1, *signal_fr.shape[2:])
+    kernel_fr = kernel_fr.view(groups, -1, *kernel_fr.shape[1:])
+
+    signal_fr = torch.movedim(signal_fr, 2, signal_fr.dim() - 1).unsqueeze(-2)
+    kernel_fr = torch.movedim(kernel_fr, (1, 2), (kernel_fr.dim() - 1, kernel_fr.dim() - 2))
+
+    # complex value matrix multiplication
+    import pdb;pdb.set_trace()
+    real = signal_fr.real @ kernel_fr.real - signal_fr.imag @ kernel_fr.imag
+    imag = signal_fr.imag @ kernel_fr.real + signal_fr.real @ kernel_fr.imag
+    real = torch.movedim(real, real.dim() - 1, 2).squeeze(-1)
+    imag = torch.movedim(imag, imag.dim() - 1, 2).squeeze(-1)
+    output_fr = torch.zeros(real.shape, dtype=torch.complex64, device=signal_fr.device)
+    output_fr.real, output_fr.imag = real, imag
+
+    return output_fr.view(output_fr.size(0), -1, *output_fr.shape[3:])
 
 
 def to_ntuple(val: Union[int, Iterable[int]], n: int) -> Tuple[int, ...]:
@@ -131,6 +182,7 @@ def fft_conv(
 
     kernel_fr.imag = kernel_fr.imag * -1
     output_fr = complex_matmul(signal_fr, kernel_fr, groups=groups)
+
     # output = irfftn(output_fr, dim=tuple(range(2, signal.ndim)))
     output = ifftn(output_fr, dim=tuple(range(2, signal.ndim)))
 
@@ -260,7 +312,14 @@ def test_fft_conv_functional(
 
     batch_size = 2  # TODO: Make this non-constant?
     dims = ndim * [input_size]
-    signal = torch.randn(batch_size, in_channels, *dims)
+    # signal = torch.randn(batch_size, in_channels, *dims)
+    signal = io.imread(os.path.join("data", "test.png"))
+    signal = signal[..., [0]] / 255.
+    signal = resize(signal, (signal.shape[0] // 4, signal.shape[1] // 4), anti_aliasing=True)
+    signal = signal[None].astype(np.float32)
+    signal = signal.transpose(0, 3, 1, 2)
+    signal = torch.from_numpy(signal)
+    in_channels = 1
     kwargs = dict(
         bias=torch.randn(out_channels) if bias else None,
         padding=padding,
@@ -270,9 +329,16 @@ def test_fft_conv_functional(
     )
 
     kernel_size = to_ntuple(kernel_size, n=signal.ndim - 2)
-    w0 = torch.randn(
-        out_channels, in_channels // groups, *kernel_size, requires_grad=True
-    )
+    # w0 = torch.randn(
+    #     out_channels, in_channels // groups, *kernel_size, requires_grad=True
+    # )
+
+    kernel = np.load(os.path.join("weights", "gabors_for_contours_7.npy"), allow_pickle=True, encoding="latin1").item()["s1"][0]
+    ks = kernel.shape
+    kernel = kernel.transpose(3, 2, 0, 1)
+    kernel = kernel[:-1]  # Reduce to 24 channels
+
+    w0 = torch.from_numpy(kernel)
     w1 = w0.detach().clone().requires_grad_()
 
     b0 = torch.randn(out_channels, requires_grad=True) if bias else None
@@ -286,17 +352,23 @@ def test_fft_conv_functional(
     )
 
     # signal = signal.astype(torch.complex64)
-    signal = signal.to(torch.complex64)
-    w0 = w0.to(torch.complex64)
-    w1 = w1.to(torch.complex64)
-    b1 = b1.to(torch.complex64)
+    signal = signal  # .to(torch.complex64)
+    w0 = w0  # .to(torch.complex64)
+    w1 = w1  # .to(torch.complex64)
+    b1 = b1  # .to(torch.complex64)
 
-    y0 = fft_conv(signal, w0, bias=b0, **kwargs)
-    y1 = torch_conv(signal, w1, bias=b1, **kwargs)
+    # y0 = fft_conv(signal, w0, bias=b0, **kwargs)
+    # y1 = torch_conv(signal, w1, bias=b1, **kwargs)
+    y0 = fft_conv(signal, w0, **kwargs)
+    y1 = torch_conv(signal, w1, **kwargs)
 
     print((y0 - y1).sum())
+    from matplotlib import pyplot as plt
+    y0 = y0.detach().cpu().real
+    y1 = y1.detach().cpu()
+    plt.subplot(121);plt.imshow(y0[0, 1]);plt.subplot(122);plt.imshow(y1[0, 1]);plt.show()
     _assert_almost_equal(y0, y1)
 
 
-test_fft_conv_functional(128, 128, 3, 3//2, 1, 1, 1, True, 2, 3)
+test_fft_conv_functional(1, 24, 3, 3//2, 1, 1, 1, True, 2, 128)
 

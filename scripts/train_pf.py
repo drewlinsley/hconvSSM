@@ -30,7 +30,7 @@ from functools import partial
 import jax
 from jax import random, lax
 import jax.numpy as jnp
-from flax.training import checkpoints
+# from flax.training import checkpoints
 from flax import jax_utils
 from flax.serialization import to_bytes, from_bytes
 import orbax.checkpoint as ocp
