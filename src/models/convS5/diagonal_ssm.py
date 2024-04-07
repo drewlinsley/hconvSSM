@@ -17,7 +17,7 @@ from jax.numpy.linalg import eigh
 from jax.scipy.linalg import block_diag
 
 # from . import diagonal_scans
-from . import diagonal_scans_conv
+from . import diagonal_scans_conv as diagonal_scans
 # from . import diagonal_scans_fft as diagonal_scans
 from .conv_ops import VmapResnetBlock, VmapDiag_CD_Conv, VmapDiagResnetBlock, Half_GLU
 

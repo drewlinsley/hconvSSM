@@ -94,11 +94,9 @@ def apply_convSSM_parallel(A, B, C, us, x0):
         As = (np.eye(len(A)) * A)[None, None, None].repeat(L, 0)
         Bus = Bus.at[0].add(np.expand_dims(A, (0, 1, 2)) * x0)
     else:
-        import pdb;pdb.set_trace()
         As = (np.ones((L,)+A.shape) * A)
         Ax = lax.conv_general_dilated(x0.astype(A.dtype), A, (1, 1), "SAME", dimension_numbers=('NHWC', 'OIHW', 'NHWC'))
         Bus = Bus.at[0].add(Ax)
-    import pdb;pdb.set_trace()
     _, xs = lax.associative_scan(scan_conv_binary_operator, (As, Bus))
 
     ys = 2 * vmap_conv(C, xs).real

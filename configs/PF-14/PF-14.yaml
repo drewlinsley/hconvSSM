@@ -43,7 +43,7 @@ decoder: # encoder / decoder are mirrored, with decoder depths reversed
   depths: [64, 128, 256] # 16x16 to 64x64
   blocks: 1
 
-d_model: 24  # 256
+d_model: 48  # 256
 
 # Sequence Model
 seq_model:
