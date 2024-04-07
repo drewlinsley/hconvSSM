@@ -6,3 +6,5 @@ __pycache__
 logs/
 good_pf_ckpts/
 google-cloud-sdk/
+*timings*
+gs:/*

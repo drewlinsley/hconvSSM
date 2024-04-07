@@ -1,4 +1,5 @@
 import os
+import sys
 
 from functools import partial
 from typing import Iterable, Tuple, Union
@@ -673,12 +674,17 @@ def run_conv_control(x_conv, kernel, timesteps):
     return x_conv, res
 
 
+def normalize(x, eps=1e-4):
+    return (x - x.mean()) / (x.std() + eps)
+
+
 # @jax.jit
 def run_fft_conv_control(x_fft, k_fft, timesteps):
     res = []
     for t in range(timesteps):
         # FFT convolution
         x_fft = fft_conv(x_fft, k_fft, padding="same", crop_original=True, crop_output=False)  # Combined function
+        x_fft = normalize(x_fft)
         res.append(x_fft)
         # xt, fk, kes, ors, st = fft_transform(x_fft, k_fft, padding="same")
         # xt = fft_proc(xt, fk, ss, shw, khw)
@@ -686,6 +692,10 @@ def run_fft_conv_control(x_fft, k_fft, timesteps):
 
 
 if __name__ == '__main__':
+
+    timesteps = int(sys.argv[1])
+    repeats = int(sys.argv[2])
+
     kernel = np.load(os.path.join("weights", "gabors_for_contours_7.npy"), allow_pickle=True, encoding="latin1").item()["s1"][0]
     ks = kernel.shape
     kernel = kernel.transpose(3, 2, 0, 1)
@@ -701,6 +711,8 @@ if __name__ == '__main__':
     x = x[:, 50:100]
     x = x[None].astype(np.float32)
 
+    x = normalize(x)
+
     # Inflate channel dim
     x = x.repeat(kernel.shape[0], -1)
 
@@ -708,7 +720,6 @@ if __name__ == '__main__':
     from timeit import default_timer as timer
 
     # For recurrence, use a single kernel
-    timesteps = 120
 
     # kernel = kernel[[0]]
 
@@ -720,24 +731,15 @@ if __name__ == '__main__':
     k_fft_a = k_fft.copy()
     # x_fft, fk, kes, ors = fft_transform(x_fft, k_fft)
     # xt, fk, ss, shw, khw, ors, s_ = fft_preproc(x_fft, k_fft, padding="same")
-
-    k_a = kernel[None].repeat(timesteps, 0)
-    x_a = x[None].repeat(timesteps, 0)
-    scan_time = timer()
-    a_k_fft, a_x_fft = lax.associative_scan(conv_binary_operator, (k_a, x_a), axis=0)
-    scan_time = timer() - scan_time
-    afout = a_x_fft[-1]  # .real[-1]
-
-    # FFT conv
-    fft_start = timer()
-    x_fft, fft_res = run_fft_conv_control(x_fft, k_fft, timesteps)
-    fout = x_fft.real
-    fft_time = timer() - fft_start
-
     # Sequential conv
-    conv_start = timer()
-    out, res = run_conv_control(x, kernel, timesteps)
-    conv_time = timer() - conv_start
+    # FFT conv
+    timings = []
+    for _ in range(repeats):
+        fft_start = timer()
+        x_fft, fft_res = run_fft_conv_control(x_fft, k_fft, timesteps)
+        fout = x_fft.real
+        fft_time = timer() - fft_start
+        timings.append(fft_time)
 
     # Now do an associative scan version
     # rAs, rBus = [], []
@@ -750,20 +752,6 @@ if __name__ == '__main__':
     # plt.imshow(A_jBU_i.squeeze().real);plt.show()
     # AA = fft_conv(k_fft_a, k_fft_a, padding=padding, signal_size=osz, crop_output=False).real
     print("Timing")
-    print("Conv: {}".format(conv_time))
-    print("FFT: {}".format(fft_time))
-    print("Scan: {}".format(scan_time))
-    import pdb;pdb.set_trace()
-    plt.subplot(221);plt.imshow(out[0, ..., 0]);plt.subplot(222);plt.imshow(kernel[0, 0]);plt.subplot(223);plt.imshow(fout[0, 0]);plt.subplot(224);plt.imshow(afout.squeeze());plt.show()
-
-    os._exit(1)
-
-    for i in range(len(a_x_fft)):
-        plt.subplot(2, len(a_x_fft), i + 1)
-        plt.imshow(a_x_fft[i].squeeze())
-        if i < len(res):
-            plt.subplot(2, len(a_x_fft), i + 1 + len(a_x_fft))
-            plt.imshow(res[i].squeeze())
-    plt.show()
-
+    print("FFT Conv: {}".format(fft_time))
+    np.save("fft_timings", timings)
 

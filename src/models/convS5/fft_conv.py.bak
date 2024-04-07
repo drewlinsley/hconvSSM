@@ -10,7 +10,6 @@ from jax import lax
 
 from skimage import io
 from skimage.transform import rescale, resize
-from jax import lax, vmap
 
 
 def complex_matmul(a: jnp.ndarray, b: jnp.ndarray, groups: int = 1) -> jnp.ndarray:
@@ -446,13 +445,13 @@ def fft_conv(
     original_size = signal.shape  # original signal size without padding to even
 
     # signal = jnp.pad(signal, signal_padding, mode=padding_mode)
-    padded_signal = jnp.pad(signal, signal_padding, mode=padding_mode)
+    signal = jnp.pad(signal, signal_padding, mode=padding_mode)
 
     # signal = jnp.pad(signal, [[0, 0], [0, 0], [padding, padding], [padding, padding]], mode=padding_mode)
 
     # Because PyTorch computes a *one-sided* FFT, we need the final dimension to
     # have *even* length.  Just pad with one more zero if the final dimension is odd.
-    new_original_size = padded_signal.shape  # original signal size without padding to even
+    new_original_size = signal.shape  # original signal size without padding to even
 
     # if signal.shape[-1] % 2 != 0:
     #     signal = jnp.pad(signal, [(0, 0)] * (signal.ndim - 1) + [(0, 1)])
@@ -462,25 +461,25 @@ def fft_conv(
     kernel_padding = [
         pad
         for i in range(2)  # reversed(range(2, signal.ndim))
-        for pad in [0, padded_signal.shape[signal_hw[i]] - kernel.shape[kernel_hw[i]]]
+        for pad in [0, signal.shape[signal_hw[i]] - kernel.shape[kernel_hw[i]]]
     ]
     kernel_padding = [[0, 0], [0, 0], [kernel_padding[0], kernel_padding[1]], [kernel_padding[2], kernel_padding[3]]]
     padded_kernel = jnp.pad(kernel, kernel_padding)
 
     # Perform fourier convolution -- FFT, matrix multiply, then IFFT
     if signal_size is not None:
-        signal_fr = jnp.fft.fftn(padded_signal, signal_size, axes=tuple(signal_hw))
+        signal_fr = jnp.fft.fftn(signal, signal_size, axes=tuple(signal_hw))
         kernel_fr = jnp.fft.fftn(padded_kernel, signal_size, axes=tuple(kernel_hw))
     else:
-        signal_fr = jnp.fft.fftn(padded_signal, axes=tuple(signal_hw))
+        signal_fr = jnp.fft.fftn(signal, axes=tuple(signal_hw))
         kernel_fr = jnp.fft.fftn(padded_kernel, axes=tuple(kernel_hw))
 
     # output_fr = complex_matmul(signal_fr, kernel_fr, groups=groups)
     output_fr = complex_matmul_cheap(signal_fr, kernel_fr)  # (signal_fr, kernel_fr.real, kernel_fr.imag * -1, groups=groups)
     if signal_size is not None:
-        output = jnp.fft.ifftn(output_fr, signal_size, axes=tuple(range(2, padded_signal.ndim)))
+        output = jnp.fft.ifftn(output_fr, signal_size, axes=tuple(range(2, signal.ndim)))
     else:
-        output = jnp.fft.ifftn(output_fr, axes=tuple(range(2, padded_signal.ndim)))
+        output = jnp.fft.ifftn(output_fr, axes=tuple(range(2, signal.ndim)))
 
     # Remove extra padded values
     if crop_output:
@@ -488,19 +487,19 @@ def fft_conv(
         #     slice(0, (original_size[i] - kernel.shape[i] + 1), stride_[i - 2])
         #     for i in range(2, signal.ndim)
         # ]
-        crop_slices = [slice(None), slice(None), slice(signal_padding[2][0] - 1, padded_signal.shape[2] - signal_padding[2][0], stride_[0]), slice(signal_padding[3][0] - 1, padded_signal.shape[3] - signal_padding[3][0], stride_[1])]
+        crop_slices = [slice(None), slice(None), slice(signal_padding[2][0], 1 + signal.shape[2] - signal_padding[2][0], stride_[0]), slice(signal_padding[3][0], 1 + signal.shape[3] - signal_padding[3][0], stride_[1])]
         output = output[tuple(crop_slices)]
 
     if crop_original:
         crop_slices = [slice(None), slice(None)] + [
             slice(0, (new_original_size[i] - kernel.shape[i] + 1), stride_[i - 2])
-            for i in range(2, padded_signal.ndim)
+            for i in range(2, signal.ndim)
         ]
         output = output[tuple(crop_slices)]
 
     # Optionally, add a bias term before returning.
     if bias is not None:
-        bias_shape = tuple([1, -1] + (padded_signal.ndim - 2) * [1])
+        bias_shape = tuple([1, -1] + (signal.ndim - 2) * [1])
         output = output + bias.reshape(bias_shape)
 
     return output
@@ -574,74 +573,7 @@ class FFTConv:
             signal_size=self.signal_size
         )
 
-# @jax.jit
-def vmap_conv(us, Bs, dns, padding="SAME", activities=True):
-    """Performs a convolution at each timestep of a sequence using vmap
-       to vectorize across the sequence length.
-       Args:
-            B (float32):   conv kernel            (k_B, k_B, U, P)
-            us (float 32): input sequence         (L, bsz, h_u, w_u, U)
-       Returns:
-            Sequence of convolved inputs Bu (float32)  (L, bsz, h_u, w_u, P)
-            )
-    """
-    def act_input_to_state_conv(u, B):
-        # Performs the input to state convolution for a single timestep
-        return lax.conv_general_dilated(u, B, (1, 1), padding, dimension_numbers=('NHWC', 'IOHW', 'NHWC'))
 
-    def kernel_input_to_state_conv(u, B):
-        # Performs the input to state convolution for a single timestep
-        return lax.conv_general_dilated(u, B, (1, 1), padding, dimension_numbers=('NCHW', 'IOHW', 'NCHW'))
-
-    if activities:
-        return vmap(act_input_to_state_conv, in_axes=(0, 0))(us, Bs)
-    else:
-        return vmap(kernel_input_to_state_conv, in_axes=(0, 0))(us, Bs)
-
-
-@jax.jit
-def vmap_fft_conv(us, Bs, kdo="IOHW", padding="SAME"):
-    """Performs a convolution at each timestep of a sequence using vmap
-       to vectorize across the sequence length.
-       Args:
-            B (float32):   conv kernel            (k_B, k_B, U, P)
-            us (float 32): input sequence         (L, bsz, h_u, w_u, U)
-       Returns:
-            Sequence of convolved inputs Bu (float32)  (L, bsz, h_u, w_u, P)
-            )
-    """
-    def input_to_state_conv(u, B):
-        # Performs the input to state convolution for a single timestep
-        return fft_conv(u, B, padding="same", crop_original=True, crop_output=False)
-
-    return vmap(input_to_state_conv, in_axes=(0, 0))(us, Bs)
-
-
-@jax.jit
-def conv_binary_operator(q_i, q_j):
-    """Assumes 1x1 kernels
-       :inputs q_i an q_j are tuples containing (A_i, BU_i) and (A_j, BU_j)
-       :inputs A_i and A_j are (P,)
-       :inputs BU_i and BU_j are bszxH_UxW_UxP
-       :returns tuple where first entry AA is (P,)
-                and second entry is bszxH_UxW_UxP"""
-
-    A_i, BU_i = q_i
-    A_j, BU_j = q_j
-    # padding = (A_j.shape[-2] // 2) + 1  # A_j.shape[-2] - 1  # [6, 6]
-
-    # A_jBU_i = lax.conv_general_dilated(BU_i, A_j, (1, 1, 1), "SAME", dimension_numbers=('TNHWC', 'TIOHW', 'TNHWC'))
-    # AA = lax.conv_general_dilated(A_i, A_j, (1, 1, 1), "SAME", dimension_numbers=('TNCHW', 'TIOHW', 'TNCHW'))
-
-    A_jBU_i = vmap_conv(BU_i, A_j, dns=('NHWC', 'IOHW', 'NHWC'), padding="SAME", activities=True)
-    AA = vmap_conv(A_i, A_j, dns=('NCHW', 'IOHW', 'NCHW'), padding="SAME", activities=False)
-
-    # plt.subplot(141);plt.imshow(BU_i[0].squeeze());plt.subplot(142);plt.imshow(A_j[0].squeeze());plt.subplot(143);plt.imshow(A_i[0].squeeze());plt.subplot(144);plt.imshow(A_jBU_i[0].squeeze().real);plt.show()
-    # return AA, (A_jBU_i + BU_j).real
-    return AA, A_jBU_i + BU_j
-
-
-@jax.jit
 def conv_fft_binary_operator(q_i, q_j):
     """Assumes 1x1 kernels
        :inputs q_i an q_j are tuples containing (A_i, BU_i) and (A_j, BU_j)
@@ -652,37 +584,17 @@ def conv_fft_binary_operator(q_i, q_j):
 
     A_i, BU_i = q_i
     A_j, BU_j = q_j
+    padding = 3  # [6, 6]
+    # signal_size = (7, 7)
+    # osz = BU_i.shape[-2:]
 
-    # A_jBU_i = fft_conv(BU_i, A_j, padding="same", crop_original=True, crop_output=False)
-    A_jBU_i = vmap_fft_conv(BU_i, A_j)
-    AA = vmap_fft_conv(A_i, A_j)  # Cross correlation
-    # AA = fft_conv(A_i, A_j, padding="same", crop_original=True, crop_output=False)
-    return AA.real, (A_jBU_i + BU_j).real
-
-
-# @jax.jit
-def run_conv_control(x_conv, kernel, timesteps):
-    res = []
-    for t in range(timesteps):
-        x_conv = lax.conv_general_dilated(x_conv, kernel, (1, 1), padding="SAME", dimension_numbers=["NHWC", "OIHW", "NHWC"])
-
-        # FFT convolution
-        res.append(x_conv)
-        # xt, fk, kes, ors, st = fft_transform(x_fft, k_fft, padding="same")
-        # xt = fft_proc(xt, fk, ss, shw, khw)
-    return x_conv, res
-
-
-# @jax.jit
-def run_fft_conv_control(x_fft, k_fft, timesteps):
-    res = []
-    for t in range(timesteps):
-        # FFT convolution
-        x_fft = fft_conv(x_fft, k_fft, padding="same", crop_original=True, crop_output=False)  # Combined function
-        res.append(x_fft)
-        # xt, fk, kes, ors, st = fft_transform(x_fft, k_fft, padding="same")
-        # xt = fft_proc(xt, fk, ss, shw, khw)
-    return x_fft, res
+    A_jBU_i = fft_conv(BU_i, A_j, padding="same", crop_output=True)  # .real
+    osz = A_jBU_i.shape[-2:]
+    AA = fft_conv(A_i, np.flip(A_j, axis=(-1,-2)), padding=padding, signal_size=osz, crop_output=False).real
+    # plt.subplot(141);plt.imshow(BU_i[0].squeeze());plt.subplot(142);plt.imshow(A_j[0].squeeze());plt.subplot(143);plt.imshow(A_i[0].squeeze());plt.subplot(144);plt.imshow(A_jBU_i[0].squeeze().real);plt.show()
+    # plt.subplot(121);plt.imshow(BU_i[0, 0].squeeze());plt.subplot(122);plt.imshow(fft_conv(BU_i, A_j, padding="same", crop_output=True).real[0].squeeze());plt.show()
+    # print(AA.shape, A_jBU_i.shape, BU_j.shape)
+    return AA, (A_jBU_i + BU_j).real
 
 
 if __name__ == '__main__':
@@ -690,9 +602,6 @@ if __name__ == '__main__':
     ks = kernel.shape
     kernel = kernel.transpose(3, 2, 0, 1)
     kernel = kernel[:-1]  # Reduce to 24 channels
-
-    # Make the kernel into an identity NxN kernel
-    kernel = (np.eye(24)[..., None, None] * np.ones((1, 1, kernel.shape[2], kernel.shape[3]))) * kernel
     # kernel = np.ascontiguousarray(kernel)
 
     image = io.imread(os.path.join("data", "test.png")) 
@@ -700,70 +609,52 @@ if __name__ == '__main__':
     x = resize(x, (x.shape[0] // 4, x.shape[1] // 4), anti_aliasing=True) 
     x = x[:, 50:100]
     x = x[None].astype(np.float32)
-
-    # Inflate channel dim
-    x = x.repeat(kernel.shape[0], -1)
-
     from matplotlib import pyplot as plt
-    from timeit import default_timer as timer
 
     # For recurrence, use a single kernel
-    timesteps = 120
-
-    # kernel = kernel[[0]]
+    timesteps = 6
+    kernel = kernel[[0]]
 
     # Regular kernel convolution
-    # x_conv = x.copy()
+    x_conv = x.copy()
     x_fft = x.copy().transpose(0, 3, 1, 2)
     k_fft = kernel.transpose(1, 0, 2, 3)
     x_fft_a = x_fft.copy()
     k_fft_a = k_fft.copy()
     # x_fft, fk, kes, ors = fft_transform(x_fft, k_fft)
     # xt, fk, ss, shw, khw, ors, s_ = fft_preproc(x_fft, k_fft, padding="same")
+    for t in range(timesteps):
+        x_conv = lax.conv_general_dilated(x_conv, kernel, (1, 1), padding="SAME", dimension_numbers=["NHWC", "OIHW", "NHWC"])
 
-    k_a = kernel[None].repeat(timesteps, 0)
-    x_a = x[None].repeat(timesteps, 0)
-    scan_time = timer()
-    a_k_fft, a_x_fft = lax.associative_scan(conv_binary_operator, (k_a, x_a), axis=0)
-    scan_time = timer() - scan_time
-    afout = a_x_fft[-1]  # .real[-1]
-
-    # FFT conv
-    fft_start = timer()
-    x_fft, fft_res = run_fft_conv_control(x_fft, k_fft, timesteps)
-    fout = x_fft.real
-    fft_time = timer() - fft_start
-
-    # Sequential conv
-    conv_start = timer()
-    out, res = run_conv_control(x, kernel, timesteps)
-    conv_time = timer() - conv_start
+        # FFT convolution
+        x_fft = fft_conv(x_fft, k_fft, padding="same", crop_original=True, crop_output=False)  # Combined function
+        x_fft = x_fft.real
+        # xt, fk, kes, ors, st = fft_transform(x_fft, k_fft, padding="same")
+        # xt = fft_proc(xt, fk, ss, shw, khw)
+    out = x_conv
+    # x_fftt = fft_postproc(xt, fk, x_fft, ors, s_)
+    fout = x_fft  # .real
 
     # Now do an associative scan version
-    # rAs, rBus = [], []
-    # padding = 3
+    rAs, rBus = [], []
+    padding = 3
     # osz = (50, 125)
-    # osz = x_fft_a.shape[-2:]  # (60, 131)
-
-    # k_fft_a = fft_conv(k_fft_a, np.ones_like(k_fft_a[..., [0], [0]][None]), padding="same", signal_size=osz, crop_output=False).real
+    osz = x_fft_a.shape[-2:]  # (60, 131)
+    k_fft_a = fft_conv(k_fft_a, np.ones_like(k_fft_a[..., [0], [0]][None]), padding="same", signal_size=osz, crop_output=False).real
     # A_jBU_i = fft_conv(x_fft_a, k_fft_a, padding="same", crop_output=False)
     # plt.imshow(A_jBU_i.squeeze().real);plt.show()
     # AA = fft_conv(k_fft_a, k_fft_a, padding=padding, signal_size=osz, crop_output=False).real
-    print("Timing")
-    print("Conv: {}".format(conv_time))
-    print("FFT: {}".format(fft_time))
-    print("Scan: {}".format(scan_time))
-    import pdb;pdb.set_trace()
-    plt.subplot(221);plt.imshow(out[0, ..., 0]);plt.subplot(222);plt.imshow(kernel[0, 0]);plt.subplot(223);plt.imshow(fout[0, 0]);plt.subplot(224);plt.imshow(afout.squeeze());plt.show()
 
-    os._exit(1)
+    # k_fft_a = k_fft_a[None].repeat(timesteps, 0)
+    # x_fft_a = x_fft_a[None].repeat(timesteps, 0)
+    k_fft_a = k_fft_a.repeat(timesteps, 0)
+    x_fft_a = x_fft_a.repeat(timesteps, 0)
+    # k_fft_a = k_fft_a[:, None]
+    # x_fft_a = x_fft_a[:, None]
 
-    for i in range(len(a_x_fft)):
-        plt.subplot(2, len(a_x_fft), i + 1)
-        plt.imshow(a_x_fft[i].squeeze())
-        if i < len(res):
-            plt.subplot(2, len(a_x_fft), i + 1 + len(a_x_fft))
-            plt.imshow(res[i].squeeze())
-    plt.show()
+    a_k_fft, a_x_fft = lax.associative_scan(conv_fft_binary_operator, (k_fft_a, x_fft_a), axis=0)
+    afout = a_x_fft.real[-1]
+
+    plt.subplot(221);plt.imshow(out[0, ..., 0]);plt.subplot(222);plt.imshow(kernel[0, 0]);plt.subplot(223);plt.imshow(fout[0, 0]);plt.subplot(224);plt.imshow(afout[0]);plt.show()
 
 

@@ -1,4 +1,5 @@
 import os
+import sys
 
 from functools import partial
 from typing import Iterable, Tuple, Union
@@ -641,6 +642,10 @@ def conv_binary_operator(q_i, q_j):
     return AA, A_jBU_i + BU_j
 
 
+def normalize(x, eps=1e-4):
+    return (x - x.mean()) / (x.std() + eps)
+
+
 @jax.jit
 def conv_fft_binary_operator(q_i, q_j):
     """Assumes 1x1 kernels
@@ -655,6 +660,7 @@ def conv_fft_binary_operator(q_i, q_j):
 
     # A_jBU_i = fft_conv(BU_i, A_j, padding="same", crop_original=True, crop_output=False)
     A_jBU_i = vmap_fft_conv(BU_i, A_j)
+    A_jBU_i = normalize(A_jBU_i)
     AA = vmap_fft_conv(A_i, A_j)  # Cross correlation
     # AA = fft_conv(A_i, A_j, padding="same", crop_original=True, crop_output=False)
     return AA.real, (A_jBU_i + BU_j).real
@@ -686,6 +692,11 @@ def run_fft_conv_control(x_fft, k_fft, timesteps):
 
 
 if __name__ == '__main__':
+
+    # timesteps = 120
+    timesteps = int(sys.argv[1])
+    repeats = int(sys.argv[2])
+
     kernel = np.load(os.path.join("weights", "gabors_for_contours_7.npy"), allow_pickle=True, encoding="latin1").item()["s1"][0]
     ks = kernel.shape
     kernel = kernel.transpose(3, 2, 0, 1)
@@ -701,14 +712,13 @@ if __name__ == '__main__':
     x = x[:, 50:100]
     x = x[None].astype(np.float32)
 
+    x = normalize(x)
+
     # Inflate channel dim
     x = x.repeat(kernel.shape[0], -1)
 
     from matplotlib import pyplot as plt
     from timeit import default_timer as timer
-
-    # For recurrence, use a single kernel
-    timesteps = 120
 
     # kernel = kernel[[0]]
 
@@ -720,50 +730,19 @@ if __name__ == '__main__':
     k_fft_a = k_fft.copy()
     # x_fft, fk, kes, ors = fft_transform(x_fft, k_fft)
     # xt, fk, ss, shw, khw, ors, s_ = fft_preproc(x_fft, k_fft, padding="same")
+    # Sequential conv
 
     k_a = kernel[None].repeat(timesteps, 0)
     x_a = x[None].repeat(timesteps, 0)
-    scan_time = timer()
-    a_k_fft, a_x_fft = lax.associative_scan(conv_binary_operator, (k_a, x_a), axis=0)
-    scan_time = timer() - scan_time
+    timings = []
+    for _ in range(repeats):
+        scan_time = timer()
+        a_k_fft, a_x_fft = lax.associative_scan(conv_binary_operator, (k_a, x_a), axis=0)
+        scan_time = timer() - scan_time
+        timings.append(scan_time)
     afout = a_x_fft[-1]  # .real[-1]
 
-    # FFT conv
-    fft_start = timer()
-    x_fft, fft_res = run_fft_conv_control(x_fft, k_fft, timesteps)
-    fout = x_fft.real
-    fft_time = timer() - fft_start
-
-    # Sequential conv
-    conv_start = timer()
-    out, res = run_conv_control(x, kernel, timesteps)
-    conv_time = timer() - conv_start
-
-    # Now do an associative scan version
-    # rAs, rBus = [], []
-    # padding = 3
-    # osz = (50, 125)
-    # osz = x_fft_a.shape[-2:]  # (60, 131)
-
-    # k_fft_a = fft_conv(k_fft_a, np.ones_like(k_fft_a[..., [0], [0]][None]), padding="same", signal_size=osz, crop_output=False).real
-    # A_jBU_i = fft_conv(x_fft_a, k_fft_a, padding="same", crop_output=False)
-    # plt.imshow(A_jBU_i.squeeze().real);plt.show()
-    # AA = fft_conv(k_fft_a, k_fft_a, padding=padding, signal_size=osz, crop_output=False).real
     print("Timing")
-    print("Conv: {}".format(conv_time))
-    print("FFT: {}".format(fft_time))
-    print("Scan: {}".format(scan_time))
-    import pdb;pdb.set_trace()
-    plt.subplot(221);plt.imshow(out[0, ..., 0]);plt.subplot(222);plt.imshow(kernel[0, 0]);plt.subplot(223);plt.imshow(fout[0, 0]);plt.subplot(224);plt.imshow(afout.squeeze());plt.show()
-
-    os._exit(1)
-
-    for i in range(len(a_x_fft)):
-        plt.subplot(2, len(a_x_fft), i + 1)
-        plt.imshow(a_x_fft[i].squeeze())
-        if i < len(res):
-            plt.subplot(2, len(a_x_fft), i + 1 + len(a_x_fft))
-            plt.imshow(res[i].squeeze())
-    plt.show()
-
+    print("Scan Conv: {}".format(scan_time))
+    np.save("scan_timings", timings)
 
