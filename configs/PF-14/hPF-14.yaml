@@ -3,8 +3,8 @@ cache: false # caching available only for encoded datasets
 
 # Training
 multinode: False
-batch_size: 512  # 512  # 256  # 768  # 96  # 32
-eval_size: 512  # 512  # 768  # 96  # 32  # 1024
+batch_size: 128  # 512  # 256  # 768  # 96  # 32
+eval_size: 128  # 512  # 768  # 96  # 32  # 1024
 num_workers: 0  # 64  # 64  # 8
 lr: 0.0003
 lr_schedule: "cosine"
@@ -43,11 +43,11 @@ decoder: # encoder / decoder are mirrored, with decoder depths reversed
   depths: [64, 128, 256] # 16x16 to 64x64
   blocks: 1
 
-d_model: 48  # 256
+d_model: 24  # 256
 
 # Sequence Model
 seq_model:
-  n_layers: 2
+  n_layers: 5
   layer_activation: "softplus"  # "relu"  # "gelu"
   dropout: 0.
   use_norm: True
@@ -60,7 +60,7 @@ seq_model:
 
 # SSM
 ssm:
-  ssm_size: 48
+  ssm_size: 24
   blocks: 1
   clip_eigs: True
   B_kernel_size: 3  # 3
