@@ -47,7 +47,7 @@ d_model: 24  # 256
 
 # Sequence Model
 seq_model:
-  n_layers: 5
+  n_layers: 7
   layer_activation: "softplus"  # "relu"  # "gelu"
   dropout: 0.
   use_norm: True
