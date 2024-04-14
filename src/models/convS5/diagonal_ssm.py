@@ -225,6 +225,7 @@ class ConvS5SSM(nn.Module):
             self.Lambda = self.Lambda_re + 1j * self.Lambda_im
 
         # Initialize input to state (B) and output to state (C) kernels
+        import pdb;pdb.set_trace()
         self.B = self.param("B",
                             lambda rng, shape: init_VinvB(rng,
                                                           shape,
