@@ -324,7 +324,6 @@ class ConvS5SSM(nn.Module):
 
 def hippo_initializer(ssm_size, blocks, H, W, init, key):
     block_size = int(ssm_size/blocks)
-    import pdb;pdb.set_trace()
     if init.lower() == "hippo":
         Lambda, _, _, V, _ = make_DPLR_init(block_size, H=H, W=W, init=init, key=key)
     elif init.lower() == "lru":
