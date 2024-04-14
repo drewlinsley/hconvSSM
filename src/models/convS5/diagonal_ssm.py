@@ -108,6 +108,7 @@ def make_DPLR_init(N, key=None, H=7, W=7, init="LRU"):
     Lambda_real = np.mean(S_diag) * np.ones_like(S_diag)
 
     # Diagonalize S to V \Lambda V^*
+    import pdb;pdb.set_trace()
     Lambda_imag, V = eigh(S * -1j)
 
     P = V.conj().T @ P
