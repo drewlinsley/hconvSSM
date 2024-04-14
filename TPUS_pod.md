@@ -1,14 +1,10 @@
-TPUNAME=hssm3
-ZONE=us-central1-a
-# ZONE=us-east1-d
-
-gcloud compute tpus tpu-vm ssh $TPUNAME --zone=$ZONE
-
+TPUNAME=hssm3_pod
+ZONE=us-east1-d
 
 gcloud alpha compute tpus tpu-vm delete $TPUNAME --zone=$ZONE
 
-gcloud compute tpus tpu-vm create $TPUNAME --zone=$ZONE --accelerator-type=v3-8 --preemptible --version=tpu-ubuntu2204-base
-# gcloud compute tpus tpu-vm create $TPUNAME --zone=$ZONE --accelerator-type=v3-32 --version=tpu-ubuntu2204-base
+# gcloud compute tpus tpu-vm create $TPUNAME --zone=$ZONE --accelerator-type=v3-32 --version=tpu-ubuntu2204-base --data-disk source=projects/beyond-dl-1503610372419/zones/$ZONE/disks/pathfinder,\mode=read-only
+
 
 gcloud alpha compute tpus tpu-vm attach-disk $TPUNAME --zone=$ZONE --disk pathfinder --mode read-only
 

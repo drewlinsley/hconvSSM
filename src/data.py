@@ -138,9 +138,10 @@ def load_pf(config, split, num_ds_shards, ds_shard_id, pnode=False):
         #         fl = io.BytesIO(file_io.FileIO(fl, 'rb').read())
         # image = imread(fl).astype(np.float32)[..., None]
         image = cv2.imread(fl, 0).astype(np.float32)[..., None]
-        image = jax.image.resize(image, shape=config.resize, method="linear")
-        image = 2 * (image / 255.) - 1
-        # image = image[None].repeat(config.image_reps, 0)  # Add timesteps and a channel dim
+        image = jax.image.resize(image, shape=config.resize, method="bilinear")
+        image = (image - image.min()) / (image.max() - image.min())  # Renormalize to [0, 1]
+        # image = 2 * (image / 255.) - 1
+        image = 2 * image - 1  # Normalize to [-1, 1]
         video, actions = image, label
         return video, actions
 
