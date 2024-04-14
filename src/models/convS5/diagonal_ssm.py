@@ -68,6 +68,7 @@ def make_NPLR_init(N, key=None, H=7, W=7, init="LRU"):
         N x N HiPPO LegS matrix, low-rank factor P, HiPPO input matrix B
     """
     # Make -HiPPO
+    import pdb;pdb.set_trace()
     if init.lower() == "hippo":
         wi = make_HiPPO(N)
     elif init.lower() == "lru":
