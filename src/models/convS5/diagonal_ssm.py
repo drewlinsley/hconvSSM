@@ -192,8 +192,8 @@ def init_VinvB(key, shape, Vinv):
 
 def init_CV(key, shape, V):
     pre_shape = V.shape
-    V = Vinv.reshape(pre_shape[0], pre_shape[1], pre_shape[2] * pre_shape[3])
-    C = he_normal()(key, Vinv.shape)
+    V = V.reshape(pre_shape[0], pre_shape[1], pre_shape[2] * pre_shape[3])
+    C = he_normal()(key, V.shape)
     CV = np.einsum("ABC,ABC->ABC", C, V)
     CV_real = CV.real
     CV_imag = CV.imag
