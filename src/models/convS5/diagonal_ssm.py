@@ -34,6 +34,7 @@ def sample_u(H, W, N, key, dtype, c=0.9999, s=0.001):
 
 
 def make_LRU(N, H, W, key, dtype=np.float32):
+    import pdb;pdb.set_trace()
     A = sample_u(H, W, N, key=key, dtype=dtype)
     V = -0.5 * np.log(A + A.min())
     theta = 2 * np.pi * sample_u(H, W, N, key=key, dtype=dtype)
@@ -103,12 +104,10 @@ def make_DPLR_init(N, key=None, H=7, W=7, init="LRU"):
     else:
         raise NotImplementedError(init)
 
-    import pdb;pdb.set_trace()
     S_diag = np.diagonal(S)
     Lambda_real = np.mean(S_diag) * np.ones_like(S_diag)
 
     # Diagonalize S to V \Lambda V^*
-    import pdb;pdb.set_trace()
     Lambda_imag, V = eigh(S * -1j)
 
     P = V.conj().T @ P
