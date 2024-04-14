@@ -183,6 +183,8 @@ def init_VinvB(key, shape, Vinv):
     B = he_normal()(key, Vinv.shape)
     B = B.transpose(0, 2, 1)
     VinvB = Vinv @ B
+    import pdb;pdb.set_trace()
+    VinvB = VinvB.reshape(pre_shape)
     VinvB_real = VinvB.real
     VinvB_imag = VinvB.imag
     return np.concatenate((VinvB_real[..., None], VinvB_imag[..., None]), axis=-1)
@@ -190,8 +192,11 @@ def init_VinvB(key, shape, Vinv):
 
 def init_CV(key, shape, V):
     out_dim, in_dim, k = shape
-    C = initialize_C_kernel(key, shape)
-    CV = C @ V
+    import pdb;pdb.set_trace()
+    pre_shape = V.shape
+    V = V.reshape(pre_shape[0], pre_shape[1], pre_shape[2] * pre_shape[3])
+    C = initialize_C_kernel(key, V.shape)
+    CV = C @ V.transpose(0, 2, 1)
     CV = CV.reshape(out_dim, k, k, in_dim//2).transpose(1, 2, 3, 0)
     CV_real = CV.real
     CV_imag = CV.imag
