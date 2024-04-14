@@ -189,17 +189,25 @@ def init_VinvB(key, shape, Vinv):
 
 
 def init_CV(key, shape, V):
-    out_dim, in_dim, k = shape
-    import pdb;pdb.set_trace()
+    V = V.transpose(3, 2, 1, 0)
     pre_shape = V.shape
-    V = V.reshape(pre_shape[0], pre_shape[1], pre_shape[2] * pre_shape[3])
-    C = initialize_C_kernel(key, V.shape)
-    VinvB = np.einsum("ABC,ABC->ABC", C, V)
-    CV = C @ V.transpose(0, 2, 1)
-    CV = CV.reshape(out_dim, k, k, in_dim//2).transpose(1, 2, 3, 0)
+    C = he_normal()(key, pre_shape)
+
+    CV = np.einsum("ABCD,ABCD->ABCD", C, V)
+    CV = CV.transpose(3, 2, 1, 0)
     CV_real = CV.real
     CV_imag = CV.imag
     return np.concatenate((CV_real[..., None], CV_imag[..., None]), axis=-1)
+
+
+# def init_CV(key, shape, V):
+#     out_dim, in_dim, k = shape
+#     C = initialize_C_kernel(key, shape)
+#     CV = C @ V
+#     CV = CV.reshape(out_dim, k, k, in_dim//2).transpose(1, 2, 3, 0)
+#     CV_real = CV.real
+#     CV_imag = CV.imag
+#     return np.concatenate((CV_real[..., None], CV_imag[..., None]), axis=-1)
 
 
 class ConvS5SSM(nn.Module):
@@ -240,7 +248,6 @@ class ConvS5SSM(nn.Module):
                             (2*self.P, self.U, self.k_B))
         B_tilde = self.B[..., 0] + 1j * self.B[..., 1]
 
-        import pdb;pdb.set_trace()
         self.C = self.param("C",
                             lambda rng, shape: init_CV(rng, shape, self.V),
                             (self.U, 2*self.P, self.k_C))
@@ -267,6 +274,8 @@ class ConvS5SSM(nn.Module):
 
         elif self.C_D_config == "half_glu":
             self.C_D_conv = Half_GLU(dim=self.U)
+        else:
+            raise NotImplementedError(self.C_D_config)
 
         # Initialize learnable discretization steps
         self.log_step = self.param("log_step",
