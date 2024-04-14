@@ -103,6 +103,7 @@ def make_DPLR_init(N, key=None, H=7, W=7, init="LRU"):
     else:
         raise NotImplementedError(init)
 
+    import pdb;pdb.set_trace()
     S_diag = np.diagonal(S)
     Lambda_real = np.mean(S_diag) * np.ones_like(S_diag)
 
