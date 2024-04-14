@@ -145,6 +145,7 @@ class PF_HCONVS5_NOVQ(nn.Module):
         last_states, deter = self.sequence_model(inp, initial_states)
         # deter = reshape_data(deter)  # swap back to BTHWC
         # out = deter[-1].mean((1, 2))
+        import pdb;pdb.set_trace()
         out = deter[-1].max((1, 2))
         encodings = self.readout(out)
 
@@ -157,10 +158,10 @@ class PF_HCONVS5_NOVQ(nn.Module):
 
     def __call__(self, video, actions, deterministic=False):
         # video: BTHWC, actions: BT
-        print(video.shape)
-        encodings = video
-        _, encodings, _, _, _ = self.condition(encodings, actions)
+        # print(video.shape)
+        _, encodings, _, _, _ = self.condition(video, actions)
 
+        import pdb;pdb.set_trace()
         loss = optax.softmax_cross_entropy(encodings, jax.nn.one_hot(actions, 2)).mean()
         mse_loss = loss
         l1_loss = loss
