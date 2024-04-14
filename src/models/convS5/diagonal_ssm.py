@@ -34,7 +34,6 @@ def sample_u(H, W, N, key, dtype, c=0.9999, s=0.001):
 
 
 def make_LRU(N, H, W, key, dtype=np.float32):
-    import pdb;pdb.set_trace()
     A = sample_u(H, W, N, key=key, dtype=dtype)
     V = -0.5 * np.log(A + A.min())
     theta = 2 * np.pi * sample_u(H, W, N, key=key, dtype=dtype)
@@ -366,7 +365,7 @@ def hippo_initializer(ssm_size, blocks, H, W, init, key):
         Vinv = block_diag(*([Vc] * blocks))
     elif init.lower() == "lru":
         Lambda = Lambda[..., :block_size, :block_size]
-        Vc = V.conj().T
+        Vc = V.conj()  # .T
 
         # Lambda = (Lambda * np.ones((blocks, block_size))).ravel()
         # V = block_diag(*([V] * blocks))
