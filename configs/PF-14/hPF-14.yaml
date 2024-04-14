@@ -3,8 +3,8 @@ cache: false # caching available only for encoded datasets
 
 # Training
 multinode: False
-batch_size: 64  # 512  # 256  # 768  # 96  # 32
-eval_size: 64  # 512  # 768  # 96  # 32  # 1024
+batch_size: 128  # 512  # 256  # 768  # 96  # 32
+eval_size: 128  # 512  # 768  # 96  # 32  # 1024
 num_workers: 16  # 64  # 64  # 8
 lr: 0.0003
 lr_schedule: "cosine"
@@ -47,7 +47,7 @@ d_model: 24  # 256
 
 # Sequence Model
 seq_model:
-  n_layers: 7
+  n_layers: 5
   layer_activation: "softplus"  # "relu"  # "gelu"
   dropout: 0.
   use_norm: True
