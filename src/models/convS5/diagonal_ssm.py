@@ -192,7 +192,6 @@ def init_VinvB(key, shape, Vinv):
 
 def init_CV(key, shape, V):
     import pdb;pdb.set_trace()
-    V = V.transpose(3, 2, 1, 0)
     pre_shape = V.shape
     C = he_normal()(key, pre_shape)
 
