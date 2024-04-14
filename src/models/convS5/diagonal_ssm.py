@@ -178,11 +178,11 @@ def initialize_B_kernel(key, shape):
 
 def init_VinvB(key, shape, Vinv):
     # B = initialize_B_kernel(key, shape)
+    import pdb;pdb.set_trace()
     pre_shape = Vinv.shape
     Vinv = Vinv.reshape(pre_shape[0], pre_shape[1], pre_shape[2] * pre_shape[3])
     B = he_normal()(key, Vinv.shape)
     VinvB = np.einsum("ABC,ABC->ABC", Vinv, B)
-    import pdb;pdb.set_trace()
     VinvB = VinvB.reshape(pre_shape)
     VinvB_real = VinvB.real
     VinvB_imag = VinvB.imag
