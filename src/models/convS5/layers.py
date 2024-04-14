@@ -227,6 +227,7 @@ class StackedLayers(nn.Module):
                     u = u + layer9_in
                 elif i == 11:
                     u = u + layer12_in
+            import pdb;pdb.set_trace()
             x_L, u = self.layers[i](u, initial_states[i])
             last_states.append(x_L)  # keep last state of each layer
         return last_states, u
