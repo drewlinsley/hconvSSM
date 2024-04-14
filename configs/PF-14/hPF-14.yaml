@@ -24,7 +24,7 @@ seq_len: 16  # Recurrent steps
 image_reps: 1
 image_size: 128
 channels: 1
-resize: [128, 128, 1]
+resize: [96, 96, 1]
 
 num_shards: null
 rng_keys: ["dropout", "sample"]
