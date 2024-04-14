@@ -127,7 +127,7 @@ def discretize_zoh(Lambda, B_tilde, Delta):
             discretized Lambda_bar (complex64), B_bar (complex64)  (P,), (P,H)
     """
     import pdb;pdb.set_trace()
-    Identity = np.eye(Lambda.shape[0])[..., None, None]
+    Identity = np.eye(Lambda.shape[0])
     Lambda_bar = np.exp(Lambda * Delta)
     B_bar = (1/Lambda * (Lambda_bar-Identity)) * B_tilde
     return Lambda_bar, B_bar
