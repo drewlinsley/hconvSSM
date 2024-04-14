@@ -30,7 +30,7 @@ def reshape_data(frames):
     return frames
 
 
-class PF_HCONVS5_NOVQ(nn.Module):
+class PF_CONVS5_NOVQ(nn.Module):
     config: Any
     training: bool
     parallel: bool
