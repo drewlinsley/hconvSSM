@@ -162,10 +162,13 @@ class PF_HCONVS5_NOVQ(nn.Module):
         # print(video.shape)
         _, encodings, _, _, _ = self.condition(video, actions)
 
-        import pdb;pdb.set_trace()
-        loss = optax.softmax_cross_entropy(encodings, jax.nn.one_hot(actions, 2)).mean()
+        # weight_for_class_i = total_samples / (num_samples_in_class_i * num_classes)
+        # weight = 1 - actions.mean()
+        oh_labs = jax.nn.one_hot(actions, 2)
+        loss = optax.softmax_cross_entropy(
+            encodings,
+            oh_labs).mean()
         mse_loss = loss
         l1_loss = loss
-
         out = dict(loss=loss, mse_loss=mse_loss, l1_loss=l1_loss)
         return out
