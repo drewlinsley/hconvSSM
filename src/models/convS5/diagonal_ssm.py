@@ -371,6 +371,7 @@ def hippo_initializer(ssm_size, blocks, H, W, init, key):
         # V = block_diag(*([V] * blocks))
         # Vinv = block_diag(*([Vc] * blocks))
         Vinv = Vc
+    import pdb;pdb.set_trace()
     return Lambda.real, Lambda.imag, V, Vinv, ssm_size
 
 
