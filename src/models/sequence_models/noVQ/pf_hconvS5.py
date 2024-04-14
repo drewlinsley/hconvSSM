@@ -68,7 +68,10 @@ class PF_HCONVS5_NOVQ(nn.Module):
                 config.latent_height,
                 config.latent_width,
                 config.ssm['ssm_size']//2))
-            initial_states.append((state, state))  # Add states for E/I
+            if self.config.horizontal:
+                initial_states.append((state, state))  # Add states for E/I
+            else:
+                initial_states.append(state)  # Add states for normal RNN
         self.initial_states = initial_states
         # self.action_embeds = nn.Embed(config.action_dim + 1, config.action_embed_dim, dtype=self.dtype)
         # self.action_conv = VmapBasicConv(k_size=1,
