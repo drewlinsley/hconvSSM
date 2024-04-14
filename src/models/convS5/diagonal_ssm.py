@@ -177,8 +177,11 @@ def initialize_B_kernel(key, shape):
 
 
 def init_VinvB(key, shape, Vinv):
-    import pdb;pdb.set_trace()
-    B = initialize_B_kernel(key, shape)
+    # B = initialize_B_kernel(key, shape)
+    pre_shape = Vinv.shape
+    Vinv = Vinv.reshape(pre_shape[0], pre_shape[1], pre_shape[2] * pre_shape[3])
+    B = he_normal()(key, Vinv.shape)
+    B = B.transpose(0, 2, 1)
     VinvB = Vinv @ B
     VinvB_real = VinvB.real
     VinvB_imag = VinvB.imag
