@@ -126,9 +126,9 @@ def discretize_zoh(Lambda, B_tilde, Delta):
             discretized Lambda_bar (complex64), B_bar (complex64)  (P,), (P,H)
     """
     import pdb;pdb.set_trace()
-    Identity = np.ones(Lambda.shape[0])
+    Identity = np.ones(Lambda.shape[-1])
     Lambda_bar = np.exp(Lambda * Delta)
-    B_bar = (1/Lambda * (Lambda_bar-Identity))[..., None] * B_tilde
+    B_bar = (1/Lambda * (Lambda_bar-Identity)) * B_tilde
     return Lambda_bar, B_bar
 
 
@@ -190,6 +190,7 @@ def init_VinvB(key, shape, Vinv):
 
 
 def init_CV(key, shape, V):
+    import pdb;pdb.set_trace()
     V = V.transpose(3, 2, 1, 0)
     pre_shape = V.shape
     C = he_normal()(key, pre_shape)
