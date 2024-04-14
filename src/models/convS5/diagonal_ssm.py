@@ -95,7 +95,7 @@ def make_DPLR_init(N, key=None, H=7, W=7, init="LRU"):
         eigenvectors V, HiPPO B pre-conjugation
     """
     A, P, B = make_NPLR_init(N, key=key, H=H, W=W, init=init)
-
+    import pdb;pdb.set_trace()
     if init.lower() == "hippo":
         S = A + P[:, np.newaxis] * P[np.newaxis, :]
     elif init.lower() == "lru":
