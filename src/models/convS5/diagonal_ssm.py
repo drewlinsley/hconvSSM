@@ -272,6 +272,7 @@ class ConvS5SSM(nn.Module):
                                                     B_tilde,
                                                     step)
             spatial_kernels = True  # False
+            import pdb;pdb.set_trace()
             if spatial_kernels:
                 self.A_bar = self.A_bar.reshape(-1, 1).repeat(9, -1).reshape(len(self.A_bar), 3, 3)
                 # self.A_bar = he_normal()(jax.random.PRNGKey(42), shape=self.A_bar.shape, dtype=self.A_bar.dtype)
