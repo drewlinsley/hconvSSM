@@ -126,10 +126,9 @@ def discretize_zoh(Lambda, B_tilde, Delta):
         Returns:
             discretized Lambda_bar (complex64), B_bar (complex64)  (P,), (P,H)
     """
-    import pdb;pdb.set_trace()
     Identity = np.eye(Lambda.shape[0])
     Lambda_bar = np.exp(Lambda * Delta[:, None, None, None])
-    B_bar = (1/Lambda * (Lambda_bar-Identity)) * B_tilde
+    B_bar = (1/Lambda * (Lambda_bar-Identity[...,  None, None])) * B_tilde
     return Lambda_bar, B_bar
 
 
@@ -284,7 +283,6 @@ class ConvS5SSM(nn.Module):
 
         if self.parallel:
             # Discretize
-            import pdb;pdb.set_trace()
             self.A_bar, self.B_bar = discretize_zoh(self.Lambda,
                                                     B_tilde,
                                                     step)
