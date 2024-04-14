@@ -73,7 +73,7 @@ class PF_HCONVS5_NOVQ(nn.Module):
         # self.action_embeds = nn.Embed(config.action_dim + 1, config.action_embed_dim, dtype=self.dtype)
         # self.action_conv = VmapBasicConv(k_size=1,
         #                                  out_channels=config.d_model)
-        self.time_pool = nn.Conv(config.ssm["ssm_size"], kernel_size=[config.seq_len, 1, 1])
+        self.time_pool = nn.Conv(config.ssm["ssm_size"], kernel_size=[config.seq_len, 1, 1], padding="VALID")
         self.readout = nn.Dense(2)
         self.preproc = nn.Conv(config.ssm["ssm_size"], kernel_size=[1, 1])
 
@@ -136,7 +136,6 @@ class PF_HCONVS5_NOVQ(nn.Module):
     def condition(self, encodings, actions, initial_states=None):
         if initial_states is None:
             initial_states = self.initial_states
-        import pdb;pdb.set_trace()
         inp = self.encode(encodings)
 
         # # inp is BTHWC, convS5 model needs TBHWC
@@ -147,6 +146,7 @@ class PF_HCONVS5_NOVQ(nn.Module):
         # deter = reshape_data(deter)  # swap back to BTHWC
         # out = deter[-1].mean((1, 2))
         import pdb;pdb.set_trace()
+        deter = deter.transpose(1, 0, 2, 3, 4)
         out = deter[-1].mean((1, 2))
         encodings = self.readout(out)
 
@@ -169,4 +169,3 @@ class PF_HCONVS5_NOVQ(nn.Module):
 
         out = dict(loss=loss, mse_loss=mse_loss, l1_loss=l1_loss)
         return out
-
