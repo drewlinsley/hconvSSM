@@ -22,7 +22,7 @@ eval_seq_len_1: 10
 eval_seq_len_2: 10
 seq_len: 16  # Recurrent steps
 image_reps: 1
-image_size: 128
+image_size: 96
 channels: 1
 resize: [96, 96, 1]
 
@@ -71,8 +71,8 @@ ssm:
   C_D_config: "resnet"
 
 
-latent_height: 128  # 64
-latent_width: 128  # 64
+latent_height: 96  # 64
+latent_width: 96  # 64
 
 n_cond: 1
 drop_loss_rate: 0.0
