@@ -1,4 +1,4 @@
-TPUNAME=hssm3
+TPUNAME=hssm4
 ZONE=us-central1-a
 # ZONE=us-east1-d
 

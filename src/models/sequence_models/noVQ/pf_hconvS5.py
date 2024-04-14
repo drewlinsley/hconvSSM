@@ -145,9 +145,9 @@ class PF_HCONVS5_NOVQ(nn.Module):
         last_states, deter = self.sequence_model(inp, initial_states)
         # deter = reshape_data(deter)  # swap back to BTHWC
         # out = deter[-1].mean((1, 2))
-        import pdb;pdb.set_trace()
         deter = deter.transpose(1, 0, 2, 3, 4)
-        out = deter[-1].mean((1, 2))
+        # out = deter[-1].mean((1, 2))
+        out = self.time_pool(deter).mean((1, 2, 3))
         encodings = self.readout(out)
 
         return None, encodings, None, None, None
