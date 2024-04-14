@@ -141,7 +141,7 @@ class HSequenceLayer(nn.Module):
         i_t, u = self.i_neurons(-u, e0)
         u = self.projection(u)
         # u = self.i_norm(u)
-        u = self.i_norm(u)
+        u = self.i_norm(u, use_running_average=~self.training)
         u = self.activation(u)
 
         # Compute E response
