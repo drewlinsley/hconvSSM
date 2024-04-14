@@ -5,7 +5,7 @@ cache: false # caching available only for encoded datasets
 multinode: False
 batch_size: 128  # 512  # 256  # 768  # 96  # 32
 eval_size: 128  # 512  # 768  # 96  # 32  # 1024
-num_workers: 0  # 64  # 64  # 8
+num_workers: 16  # 64  # 64  # 8
 lr: 0.0003
 lr_schedule: "cosine"
 weight_decay: 0.00001
@@ -22,7 +22,7 @@ eval_seq_len_1: 10
 eval_seq_len_2: 10
 seq_len: 20  # Recurrent steps
 image_reps: 1
-image_size: 64
+image_size: 128
 channels: 1
 resize: [128, 128, 1]
 
@@ -35,13 +35,13 @@ model: "pf_hconvS5_noVQ"
 
 loss_weight: 1  # 0.5
 
-encoder: # encoder / decoder are mirrored, with decoder depths reversed
-  depths: [64, 128, 256] # 64x64 to 16x16
-  blocks: 1 #blocks doesn't do anything here
+# encoder: # encoder / decoder are mirrored, with decoder depths reversed
+#   depths: [64, 128, 256] # 64x64 to 16x16
+#   blocks: 1 #blocks doesn't do anything here
 
-decoder: # encoder / decoder are mirrored, with decoder depths reversed
-  depths: [64, 128, 256] # 16x16 to 64x64
-  blocks: 1
+# decoder: # encoder / decoder are mirrored, with decoder depths reversed
+#   depths: [64, 128, 256] # 16x16 to 64x64
+#   blocks: 1
 
 d_model: 24  # 256
 
@@ -71,8 +71,8 @@ ssm:
   C_D_config: "resnet"
 
 
-latent_height: 64  # 64
-latent_width: 64  # 64
+latent_height: 128  # 64
+latent_width: 128  # 64
 
 n_cond: 1
 drop_loss_rate: 0.0

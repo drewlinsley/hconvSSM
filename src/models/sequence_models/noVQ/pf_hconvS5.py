@@ -71,8 +71,8 @@ class PF_HCONVS5_NOVQ(nn.Module):
             initial_states.append((state, state))  # Add states for E/I
         self.initial_states = initial_states
         # self.action_embeds = nn.Embed(config.action_dim + 1, config.action_embed_dim, dtype=self.dtype)
-        self.action_conv = VmapBasicConv(k_size=1,
-                                         out_channels=config.d_model)
+        # self.action_conv = VmapBasicConv(k_size=1,
+        #                                  out_channels=config.d_model)
         self.readout = nn.Dense(2)
         self.preproc = nn.Conv(config.ssm["ssm_size"], kernel_size=[1, 1])
 
@@ -108,7 +108,7 @@ class PF_HCONVS5_NOVQ(nn.Module):
 
         # inp is BTHWC, convS5 model needs TBHWC
         inp = reshape_data(inp)
-        inp = self.action_conv(inp)
+        # inp = self.action_conv(inp)
         last_states, deter = self.sequence_model(inp, initial_states)
         deter = reshape_data(deter)  # Now BTHWC
 
@@ -140,7 +140,7 @@ class PF_HCONVS5_NOVQ(nn.Module):
 
         # # inp is BTHWC, convS5 model needs TBHWC
         # inp = reshape_data(inp)
-        inp = self.action_conv(inp)
+        # inp = self.action_conv(inp)
         # inp = inp[0].max((1, 2))
         last_states, deter = self.sequence_model(inp, initial_states)
         # deter = reshape_data(deter)  # swap back to BTHWC
