@@ -68,7 +68,7 @@ class PF_HCONVS5_NOVQ(nn.Module):
                 config.latent_height,
                 config.latent_width,
                 config.ssm['ssm_size']//2))
-            if self.config.horizontal:
+            if config.horizontal:
                 initial_states.append((state, state))  # Add states for E/I
             else:
                 initial_states.append(state)  # Add states for normal RNN
