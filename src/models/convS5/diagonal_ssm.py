@@ -191,12 +191,10 @@ def init_VinvB(key, shape, Vinv):
 
 
 def init_CV(key, shape, V):
-    import pdb;pdb.set_trace()
     pre_shape = V.shape
-    C = he_normal()(key, pre_shape)
-
-    CV = np.einsum("ABCD,ABCD->ABCD", C, V)
-    CV = CV.transpose(3, 2, 1, 0)
+    V = Vinv.reshape(pre_shape[0], pre_shape[1], pre_shape[2] * pre_shape[3])
+    C = he_normal()(key, Vinv.shape)
+    CV = np.einsum("ABC,ABC->ABC", C, V)
     CV_real = CV.real
     CV_imag = CV.imag
     return np.concatenate((CV_real[..., None], CV_imag[..., None]), axis=-1)
