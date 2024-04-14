@@ -128,7 +128,7 @@ def discretize_zoh(Lambda, B_tilde, Delta):
     """
     import pdb;pdb.set_trace()
     Identity = np.eye(Lambda.shape[0])
-    Lambda_bar = np.exp(Lambda * Delta)
+    Lambda_bar = np.exp(Lambda * Delta[:, None, None, None])
     B_bar = (1/Lambda * (Lambda_bar-Identity)) * B_tilde
     return Lambda_bar, B_bar
 
@@ -149,7 +149,6 @@ def init_log_steps(key, input):
         key, skey = jax.random.split(key)
         log_step = log_step_initializer(dt_min=dt_min, dt_max=dt_max)(skey, shape=(1,))
         log_steps.append(log_step)
-
     return np.array(log_steps)
 
 
