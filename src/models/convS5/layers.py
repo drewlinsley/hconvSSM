@@ -36,6 +36,8 @@ class SequenceLayer(nn.Module):
             self.activation = nn.swish
         elif self.activation_fn in ["elu"]:
             self.activation = nn.elu
+        else:
+            raise NotImplementedError(self.activation_fn)
 
         self.seq = self.ssm(parallel=self.parallel,
                             activation=self.activation,
