@@ -364,7 +364,7 @@ def init_ConvS5SSM(ssm_size,
                    C_D_config,
                    H=7,
                    W=7,
-                   init="hippo"):  # LRU hippo
+                   init="LRU"):  # LRU hippo
     key = jax.random.PRNGKey(42)
     Lambda_re_init, Lambda_im_init,\
         V, Vinv, ssm_size = hippo_initializer(ssm_size, blocks, H, W, key=key, init=init)
