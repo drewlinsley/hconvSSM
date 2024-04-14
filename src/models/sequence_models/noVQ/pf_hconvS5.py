@@ -73,6 +73,7 @@ class PF_HCONVS5_NOVQ(nn.Module):
         # self.action_embeds = nn.Embed(config.action_dim + 1, config.action_embed_dim, dtype=self.dtype)
         # self.action_conv = VmapBasicConv(k_size=1,
         #                                  out_channels=config.d_model)
+        self.time_pool = nn.Conv(config.ssm["ssm_size"], kernel_size=[config.seq_len, 1, 1])
         self.readout = nn.Dense(2)
         self.preproc = nn.Conv(config.ssm["ssm_size"], kernel_size=[1, 1])
 

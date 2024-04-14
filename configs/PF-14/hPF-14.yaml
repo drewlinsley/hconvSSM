@@ -20,7 +20,7 @@ log_interval: 100
 data_path: "/raid/moving_mnist_long_1"
 eval_seq_len_1: 10
 eval_seq_len_2: 10
-seq_len: 20  # Recurrent steps
+seq_len: 16  # Recurrent steps
 image_reps: 1
 image_size: 128
 channels: 1
