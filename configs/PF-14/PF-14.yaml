@@ -31,7 +31,7 @@ rng_keys: ["dropout", "sample"]
 batch_keys: ["video", "actions"]
 
 # Model
-model: "hconvS5_noVQ"
+model: "pf_hconvS5_noVQ"
 
 loss_weight: 1  # 0.5
 
@@ -56,7 +56,7 @@ seq_model:
   num_groups: 1  # 32
   squeeze_excite: False
   skip_connections: False
-  horizontal_connections: True
+  horizontal_connections: False
 
 # SSM
 ssm:

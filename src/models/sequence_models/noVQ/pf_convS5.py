@@ -59,7 +59,6 @@ class PF_CONVS5_NOVQ(nn.Module):
                                             ssm=self.ssm,
                                             training=self.training,
                                             d_model=self.config.d_model,
-                                            horizontal_connections=False,  # Turn into an h-ssm
                                             parallel=self.parallel)
 
         initial_states = []
