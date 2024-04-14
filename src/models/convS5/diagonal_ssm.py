@@ -178,7 +178,6 @@ def initialize_B_kernel(key, shape):
 
 def init_VinvB(key, shape, Vinv):
     # B = initialize_B_kernel(key, shape)
-    import pdb;pdb.set_trace()
     pre_shape = Vinv.shape
     Vinv = Vinv.reshape(pre_shape[0], pre_shape[1], pre_shape[2] * pre_shape[3])
     B = he_normal()(key, Vinv.shape)
@@ -234,7 +233,6 @@ class ConvS5SSM(nn.Module):
             self.Lambda = self.Lambda_re + 1j * self.Lambda_im
 
         # Initialize input to state (B) and output to state (C) kernels
-        import pdb;pdb.set_trace()
         self.B = self.param("B",
                             lambda rng, shape: init_VinvB(rng,
                                                           shape,
@@ -242,6 +240,7 @@ class ConvS5SSM(nn.Module):
                             (2*self.P, self.U, self.k_B))
         B_tilde = self.B[..., 0] + 1j * self.B[..., 1]
 
+        import pdb;pdb.set_trace()
         self.C = self.param("C",
                             lambda rng, shape: init_CV(rng, shape, self.V),
                             (self.U, 2*self.P, self.k_C))
