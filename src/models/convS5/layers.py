@@ -112,8 +112,8 @@ class HSequenceLayer(nn.Module):
         self.projection = nn.Conv(features=self.d_model, kernel_size=(1, 1, 1), padding="SAME")
 
         if self.use_norm:
-            self.i_norm = nn.LayerNorm()
-            self.e_norm = nn.LayerNorm()
+            self.i_norm = nn.BatchNorm()
+            self.e_norm = nn.BatchNorm()
 
         # TODO: Need to figure out dropout strategy, maybe drop whole channels?
         self.drop = nn.Dropout(
@@ -131,7 +131,8 @@ class HSequenceLayer(nn.Module):
         # Normalize FF drive
         if self.use_norm:
             if self.prenorm:
-                u = self.e_norm(u)
+                # u = self.e_norm(u)
+                u = self.e_norm(u, use_running_average=~self.training)
 
         e0, i0 = x0
 
@@ -139,6 +140,7 @@ class HSequenceLayer(nn.Module):
         u = self.activation(u)
         i_t, u = self.i_neurons(-u, e0)
         u = self.projection(u)
+        # u = self.i_norm(u)
         u = self.i_norm(u)
         u = self.activation(u)
 
@@ -155,7 +157,8 @@ class HSequenceLayer(nn.Module):
         # Normalize recurrent output
         if self.use_norm:
             if not self.prenorm:
-                u = self.e_norm(u)
+                # u = self.e_norm(u)
+                u = self.e_norm(u, use_running_average=~self.training)
         return x_L, u
 
 

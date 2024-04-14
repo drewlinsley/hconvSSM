@@ -31,7 +31,7 @@ rng_keys: ["dropout", "sample"]
 batch_keys: ["video", "actions"]
 
 # Model
-model: "pf_hconvS5_noVQ"
+model: "pf_convS5_noVQ"
 
 loss_weight: 1  # 0.5
 
