@@ -30,7 +30,8 @@ def make_HiPPO(N):
 
 
 def sample_u(H, W, N, key, dtype, c=0.9999, s=0.001):
-    return (c - uniform(s)(key, shape=[H, W, N, N], dtype=dtype)) ** 2
+    # return (c - uniform(s)(key, shape=[H, W, N, N], dtype=dtype)) ** 2
+    return (c - uniform(s)(key, shape=[N, N, H, W], dtype=dtype)) ** 2
 
 
 def make_LRU(N, H, W, key, dtype=np.float32):
