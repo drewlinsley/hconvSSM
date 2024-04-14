@@ -36,6 +36,8 @@ class SequenceLayer(nn.Module):
             self.activation = nn.swish
         elif self.activation_fn in ["elu"]:
             self.activation = nn.elu
+        elif self.activation_fn in ["softplus"]:
+            self.activation = nn.softplus
         else:
             raise NotImplementedError(self.activation_fn)
 
@@ -45,7 +47,8 @@ class SequenceLayer(nn.Module):
                             squeeze_excite=self.squeeze_excite)
 
         if self.use_norm:
-            self.norm = nn.LayerNorm()
+            # self.norm = nn.LayerNorm()
+            self.norm = nn.BatchNorm()
 
         # TODO: Need to figure out dropout strategy, maybe drop whole channels?
         self.drop = nn.Dropout(
@@ -62,13 +65,15 @@ class SequenceLayer(nn.Module):
         # Apply pre-norm if necessary
         if self.use_norm:
             if self.prenorm:
-                u = self.norm(u)
+                # u = self.norm(u)
+                u = self.norm(u, use_running_average=~self.training)
         x_L, u = self.seq(u, x0)
         u = self.drop(u)
         u = skip + u
         if self.use_norm:
             if not self.prenorm:
-                u = self.norm(u)
+                # u = self.norm(u)
+                u = self.norm(u, use_running_average=~self.training)
         return x_L, u
 
 
