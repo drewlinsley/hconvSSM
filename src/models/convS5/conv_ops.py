@@ -258,7 +258,6 @@ def vmap_conv(B, us):
     def input_to_state_conv(B, u):
         # Performs the input to state convolution for a single timestep
         return lax.conv_general_dilated(u, B, (1, 1), 'SAME', dimension_numbers=('NHWC', 'IOHW', 'NHWC'))
-    import pdb;pdb.set_trace()
     return vmap(input_to_state_conv, in_axes=(None, 0))(B, us)
 
 
