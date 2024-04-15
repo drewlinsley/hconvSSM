@@ -116,7 +116,7 @@ class HSequenceLayer(nn.Module):
                             activation=self.activation,
                             num_groups=self.num_groups,
                             squeeze_excite=self.squeeze_excite)
-        self.projection = nn.Conv(features=self.d_model, kernel_size=(1, 1, 1), padding="SAME")
+        # self.projection = nn.Conv(features=self.d_model, kernel_size=(1, 1, 1), padding="SAME")
 
         if self.use_norm:
             self.i_norm = nn.BatchNorm()
@@ -146,7 +146,7 @@ class HSequenceLayer(nn.Module):
         # Compute I response (negate u)
         u = self.activation(u)
         i_t, u = self.i_neurons(-u, e0)
-        u = self.projection(u)
+        # u = self.projection(u)
         # u = self.i_norm(u)
         u = self.i_norm(u, use_running_average=~self.training)
         u = self.activation(u)
