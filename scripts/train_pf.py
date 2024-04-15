@@ -211,7 +211,7 @@ def train_step(batch, state, rng):
         grads=grads,
     )
 
-    return new_state, out, new_rng
+    return new_state, out, new_rng, grads
 
 
 def test_step(batch, state, rng):
@@ -245,7 +245,7 @@ def train(iteration, model, p_train_step, state, train_loader, schedule_fn, rngs
         batch_size = batch['video'].shape[1]
         progress.update(data=time.time() - end)
 
-        state, return_dict, rngs = p_train_step(batch=batch, state=state, rng=rngs)
+        state, return_dict, rngs, grads = p_train_step(batch=batch, state=state, rng=rngs)
 
         metrics = {k: return_dict[k].mean() for k in model.metrics}
         metrics = {k: v.astype(jnp.float32) for k, v in metrics.items()}
@@ -256,6 +256,7 @@ def train(iteration, model, p_train_step, state, train_loader, schedule_fn, rngs
             wandb.log({**{f'train/{metric}': val
                         for metric, val in metrics.items()}
                     }, step=iteration)
+            wandb.log({'train/grad': grads}, step=iteration)
 
         progress.update(time=time.time() - end)
         end = time.time()
