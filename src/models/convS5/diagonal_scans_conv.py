@@ -96,7 +96,7 @@ def apply_convSSM_parallel(A, B, C, us, x0):
         Bus = Bus.at[0].add(np.expand_dims(A, (0, 1, 2)) * x0)
     else:
         As = (np.ones((L,)+A.shape) * A)
-        Ax = lax.conv_general_dilated(x0.astype(A.dtype), A, (1, 1), "SAME", dimension_numbers=('NHWC', 'OIHW', 'NHWC'))
+        Ax = lax.conv_general_dilated(x0.astype(A.dtype), A, (1, 1), "SAME", dimension_numbers=('NHWC', 'IOHW', 'NHWC'))
         Bus = Bus.at[0].add(Ax)
     _, xs = lax.associative_scan(scan_conv_binary_operator, (As, Bus))
 
@@ -121,10 +121,10 @@ def apply_convSSM_sequential(A, B, C, us, x0):
     def step(x_k_1, u_k):
         Bu = lax.conv_general_dilated(np.complex64(u_k), B, (1, 1),
                                       'SAME',
-                                      dimension_numbers=('NHWC', 'HWIO', 'NHWC'))
+                                      dimension_numbers=('NHWC', 'IOHW', 'NHWC'))
         x_k = np.expand_dims(A, (0, 1, 2)) * x_k_1 + Bu
         y_k = 2 * lax.conv_general_dilated(x_k, C, (1, 1),
                                            'SAME',
-                                           dimension_numbers=('NHWC', 'HWIO', 'NHWC')).real
+                                           dimension_numbers=('NHWC', 'IOHW', 'NHWC')).real
         return x_k, y_k
     return lax.scan(step, np.complex64(x0), us)
