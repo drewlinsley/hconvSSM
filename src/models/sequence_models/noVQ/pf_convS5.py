@@ -67,7 +67,8 @@ class PF_CONVS5_NOVQ(nn.Module):
             state = jnp.zeros((bsz_device,
                 config.latent_height,
                 config.latent_width,
-                config.ssm['ssm_size']//2))
+                config.ssm['ssm_size']))
+                # config.ssm['ssm_size']//2))
             if self.config.seq_model["horizontal_connections"]:
                 initial_states.append((state, state))  # Add states for E/I
             else:
