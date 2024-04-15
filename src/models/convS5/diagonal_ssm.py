@@ -193,6 +193,7 @@ def init_CV(key, shape, V):
     V = V.reshape(pre_shape[0], pre_shape[1], pre_shape[2] * pre_shape[3])
     C = he_normal()(key, V.shape)
     CV = np.einsum("ABC,ABC->ABC", C, V)
+    CV = CV.reshape(pre_shape)
     CV_real = CV.real
     CV_imag = CV.imag
     return np.concatenate((CV_real[..., None], CV_imag[..., None]), axis=-1)

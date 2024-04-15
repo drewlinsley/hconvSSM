@@ -89,7 +89,6 @@ def apply_convSSM_parallel(A, B, C, us, x0):
         ys (float32): the conv SSM outputs        (L,bsz, H, W, U)
     """
     L = us.shape[0]
-    import pdb;pdb.set_trace()
     Bus = vmap_conv(B, np.complex64(us))
     if len(A.shape) == 1:
         As = (np.eye(len(A)) * A)[None, None, None].repeat(L, 0)
@@ -100,8 +99,8 @@ def apply_convSSM_parallel(A, B, C, us, x0):
         Bus = Bus.at[0].add(Ax)
     _, xs = lax.associative_scan(scan_conv_binary_operator, (As, Bus))
 
-    ys = 2 * vmap_conv(C, xs).real
-
+    # ys = 2 * vmap_conv(C, xs).real
+    ys = vmap_conv(C, xs).real
     return xs[-1], ys
 
 
