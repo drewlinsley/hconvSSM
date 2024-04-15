@@ -7,7 +7,7 @@ batch_size: 64  # 512  # 256  # 768  # 96  # 32
 eval_size: 64  # 512  # 768  # 96  # 32  # 1024
 num_workers: 16  # 64  # 64  # 8
 lr: 0.0003
-lr_schedule: "cosine"
+lr_schedule: "constant"
 weight_decay: 0.00001
 total_steps: 300000
 test_steps: 10
