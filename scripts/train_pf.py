@@ -256,7 +256,8 @@ def train(iteration, model, p_train_step, state, train_loader, schedule_fn, rngs
             wandb.log({**{f'train/{metric}': val
                         for metric, val in metrics.items()}
                     }, step=iteration)
-            wandb.log({'train/grad': grads}, step=iteration)
+            wandb.log(
+                {'train/grad_{}'.format(k): v for k, v in grads["sequence_model"]["layers_3"]["e_neurons"].items() if "conv" not in k}, step=iteration)
 
         progress.update(time=time.time() - end)
         end = time.time()
