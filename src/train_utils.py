@@ -66,20 +66,10 @@ def get_optimizer(config):
 
 
 def init_model_state(rng_key, model, sample, config):
-    # try:
-    #     variables = model.init(
-    #         rngs={k: rng_key for k in ['params', *config.rng_keys]},
-    #         **{k: sample[k] for k in config.batch_keys}
-    #     ).unfreeze()
-    # except:
-    #     variables = model.init(
-    #         rngs={k: rng_key for k in ['params', *config.rng_keys]},
-    #         **{k: sample[k] for k in config.batch_keys}
-    #     )  # .unfreeze()
     variables = model.init(
         rngs={k: rng_key for k in ['params', *config.rng_keys]},
         **{k: sample[k] for k in config.batch_keys}
-    ).unfreeze()
+    )  # .unfreeze()
     params = freeze(variables.pop('params'))
     model_state = variables
     print_model_size(params)
