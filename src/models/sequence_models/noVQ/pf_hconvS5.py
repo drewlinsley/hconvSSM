@@ -147,6 +147,7 @@ class PF_HCONVS5_NOVQ(nn.Module):
         # inp = self.action_conv(inp)
         # inp = inp[0].max((1, 2))
         # last_states, deter = self.sequence_model(inp, initial_states)
+        import pdb;pdb.set_trace()
         last_states, deter = self.sequence_model(inp, [inp, inp])  # Use FF drive as initial state
         # deter = reshape_data(deter)  # swap back to BTHWC
         # out = deter[-1].mean((1, 2))
