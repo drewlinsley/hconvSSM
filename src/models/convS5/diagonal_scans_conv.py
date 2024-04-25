@@ -95,7 +95,7 @@ def apply_convSSM_parallel(A, B, C, us, x0):
         Bus = Bus.at[0].add(np.expand_dims(A, (0, 1, 2)) * x0)
     else:
         # As = (np.ones((L,)+A.shape) * A)
-        As = A[None].repeat(10, axis=0)
+        As = A[None].repeat(L, axis=0)
         Ax = lax.conv_general_dilated(x0.astype(A.dtype), A, (1, 1), "SAME", dimension_numbers=('NHWC', 'IOHW', 'NHWC'))
         Bus = Bus.at[0].add(Ax)
     _, xs = lax.associative_scan(scan_conv_binary_operator, (As, Bus))
