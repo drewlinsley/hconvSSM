@@ -290,7 +290,7 @@ class ConvS5SSM(nn.Module):
             self.A_bar, self.B_bar = discretize_zoh(self.Lambda,
                                                     B_tilde,
                                                     step)
-            init_spatial_kernels = True  # False
+            init_spatial_kernels = False  # False
             if init_spatial_kernels:
                 # self.A_bar = self.A_bar.reshape(-1, 1).repeat(9, -1).reshape(len(self.A_bar), 3, 3)
                 # self.A_bar = he_normal()(jax.random.PRNGKey(42), shape=self.A_bar.shape, dtype=self.A_bar.dtype)
