@@ -146,12 +146,13 @@ class PF_CONVS5_NOVQ(nn.Module):
         # inp = reshape_data(inp)
         # inp = self.action_conv(inp)
         # inp = inp[0].max((1, 2))
-        last_states, deter = self.sequence_model(inp, initial_states)
+        # last_states, deter = self.sequence_model(inp, initial_states)
+        last_states, deter = self.sequence_model(inp, inp)  # Use FF drive as initial state
         # deter = reshape_data(deter)  # swap back to BTHWC
         # out = deter[-1].mean((1, 2))
         deter = deter.transpose(1, 0, 2, 3, 4)
         # out = deter[-1].mean((1, 2))
-        out = self.time_pool(deter).mean((1, 2, 3))
+        out = self.time_pool(deter).max((1, 2, 3))
         encodings = self.readout(out)
 
         return None, encodings, None, None, None
